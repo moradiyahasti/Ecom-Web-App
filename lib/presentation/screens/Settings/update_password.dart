@@ -1,5 +1,5 @@
-import 'package:demo/services/api_service.dart';
-import 'package:demo/services/token_service.dart';
+import 'package:demo/data/services/api_service.dart';
+import 'package:demo/data/services/token_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 

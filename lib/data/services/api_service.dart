@@ -1,6 +1,6 @@
   import 'dart:convert';
   import 'dart:developer';
-  import 'package:demo/models/get_cart_item_model.dart';
+  import 'package:demo/data/models/get_cart_item_model.dart';
   import 'package:flutter/foundation.dart';
   import 'package:http/http.dart' as http;
   import 'package:url_launcher/url_launcher.dart';

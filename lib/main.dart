@@ -1,12 +1,12 @@
-import 'package:demo/screens/Auth/auth.dart';
-import 'package:demo/screens/Auth/dashboard_screen.dart';
-import 'package:demo/screens/splash_screen.dart';
-import 'package:demo/services/cart_provider.dart';
-import 'package:demo/services/provider.dart';
+import 'package:demo/presentation/screens/Auth/auth.dart';
+import 'package:demo/presentation/screens/Auth/dashboard_screen.dart';
+import 'package:demo/presentation/screens/Auth/splash_screen.dart';
+import 'package:demo/data/providers/cart_provider.dart';
+import 'package:demo/data/services/provider.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
-import 'services/token_service.dart';
+import 'data/services/token_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,7 +31,7 @@ class MyApp extends StatelessWidget {
     return SafeArea(
       child: GetMaterialApp(
         debugShowCheckedModeBanner: false,
-        title: "Demo App",
+        title: "Shree Nails",
         theme: ThemeData(
           scaffoldBackgroundColor: const Color(0xFFF9F9FB),
           primaryColor: Colors.deepPurple,

@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:developer';
-import 'package:demo/models/get_cart_item_model.dart';
-import 'package:demo/screens/Settings/payment_screen.dart';
-import 'package:demo/services/api_service.dart';
-import 'package:demo/services/token_service.dart';
+import 'package:demo/data/models/get_cart_item_model.dart';
+import 'package:demo/presentation/screens/Settings/payment_screen.dart';
+import 'package:demo/data/services/api_service.dart';
+import 'package:demo/data/services/token_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;

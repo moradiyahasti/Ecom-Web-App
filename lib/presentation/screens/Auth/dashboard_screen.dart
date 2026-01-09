@@ -1,12 +1,12 @@
 
 
-import 'package:demo/screens/Auth/auth.dart';
-import 'package:demo/screens/add_to_cart.dart';
-import 'package:demo/screens/favorite.dart';
-import 'package:demo/screens/home_screen.dart';
-import 'package:demo/screens/Settings/setting_screen.dart';
-import 'package:demo/services/cart_provider.dart';
-import 'package:demo/services/token_service.dart';
+import 'package:demo/presentation/screens/Auth/auth.dart';
+import 'package:demo/presentation/screens/cart/add_to_cart.dart';
+import 'package:demo/presentation/screens/favorite/favorite.dart';
+import 'package:demo/presentation/screens/home/home_screen.dart';
+import 'package:demo/presentation/screens/Settings/setting_screen.dart';
+import 'package:demo/data/providers/cart_provider.dart';
+import 'package:demo/data/services/token_service.dart';
 import 'package:demo/widget/all_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';

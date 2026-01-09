@@ -1,6 +1,6 @@
 import 'package:confetti/confetti.dart';
-import 'package:demo/screens/address_screen.dart';
-import 'package:demo/services/cart_provider.dart';
+import 'package:demo/presentation/screens/Settings/address_screen.dart';
+import 'package:demo/data/providers/cart_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';

@@ -2,8 +2,8 @@
 
 import 'dart:developer';
 
-import 'package:demo/screens/Settings/edit_profile.dart';
-import 'package:demo/services/token_service.dart';
+import 'package:demo/data/services/token_service.dart';
+import 'package:demo/presentation/screens/Settings/edit_profile.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 

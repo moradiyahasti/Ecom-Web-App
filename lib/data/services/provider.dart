@@ -1,6 +1,6 @@
 import 'dart:developer';
-import 'package:demo/models/product_model.dart';
-import 'package:demo/services/api_service.dart';
+import 'package:demo/data/models/product_model.dart';
+import 'package:demo/data/services/api_service.dart';
 import 'package:flutter/material.dart';
 
 class FavoritesProvider with ChangeNotifier {

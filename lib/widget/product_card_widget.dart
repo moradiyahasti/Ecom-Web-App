@@ -346,10 +346,10 @@ class _ProductCardState extends State<ProductCard> {
 }
  */
 // 🛒 widget/product_card_widget.dart - UPDATED
-import 'package:demo/models/product_model.dart';
-import 'package:demo/screens/product_details_screen.dart';
-import 'package:demo/services/cart_provider.dart';
-import 'package:demo/services/provider.dart';
+import 'package:demo/data/models/product_model.dart';
+import 'package:demo/presentation/screens/product/product_details_screen.dart';
+import 'package:demo/data/providers/cart_provider.dart';
+import 'package:demo/data/services/provider.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';

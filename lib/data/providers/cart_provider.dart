@@ -1,7 +1,7 @@
 // 🛒 services/cart_provider.dart
 import 'dart:developer';
-import 'package:demo/models/get_cart_item_model.dart';
-import 'package:demo/services/api_service.dart';
+import 'package:demo/data/models/get_cart_item_model.dart';
+import 'package:demo/data/services/api_service.dart';
 import 'package:flutter/material.dart';
 
 class CartProvider extends ChangeNotifier {
