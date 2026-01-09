@@ -1,6 +1,4 @@
-import 'dart:developer';
 import 'package:confetti/confetti.dart';
-import 'package:demo/screens/Settings/payment_screen.dart';
 import 'package:demo/screens/address_screen.dart';
 import 'package:demo/services/cart_provider.dart';
 import 'package:flutter/material.dart';
@@ -46,6 +44,7 @@ class CartScreenState extends State<CartScreen> {
     _confettiController.dispose();
     super.dispose();
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -760,7 +759,7 @@ class CartScreenState extends State<CartScreen> {
                       shipping: shippingCost.toDouble(),
                       discount: discountAmount.toDouble(),
                       total: total.toDouble(),
-                      cartItems: cartItems, 
+                      cartItems: cartItems,
                     ),
                   ),
                 );

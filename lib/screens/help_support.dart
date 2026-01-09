@@ -158,7 +158,7 @@ class HelpSupportScreen extends StatelessWidget {
           child: _buildActionCard(
             icon: Icons.email_outlined,
             title: 'Email Us',
-            color: const Color(0xFFFF6B6B),
+            color: const Color(0xFF6C5CE7),
             onTap: () {},
           ),
         ),

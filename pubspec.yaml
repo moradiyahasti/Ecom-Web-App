@@ -27,6 +27,7 @@ dependencies:
   upi_payment_qrcode_generator: ^1.2.1  
   url_launcher:
   upi_pay: ^1.1.0
+  qr_flutter: ^4.1.0
 
   video_player: 
 

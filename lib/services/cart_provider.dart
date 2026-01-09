@@ -176,21 +176,46 @@ class CartProvider extends ChangeNotifier {
   }
 
   // Clear all cart (optional)
-  Future<void> clearCart(int userId) async {
-    try {
-      // Remove all items one by one
-      final itemsToRemove = List<int>.from(_cartItems.keys);
-      for (var productId in itemsToRemove) {
-        await removeFromCart(userId, productId);
-      }
-      log("🗑️ Cart cleared");
-    } catch (e) {
-      log("❌ Error clearing cart: $e");
-    }
-  }
+  // Future<void> clearCart(int userId) async {
+  //   try {
+  //     // Remove all items one by one
+  //     final itemsToRemove = List<int>.from(_cartItems.keys);
+  //     for (var productId in itemsToRemove) {
+  //       await removeFromCart(userId, productId);
+  //     }
+  //     log("🗑️ Cart cleared");
+  //   } catch (e) {
+  //     log("❌ Error clearing cart: $e");
+  //   }
+  // }
 
   // Get cart item by product ID
   GetCartItemMode? getCartItem(int productId) {
     return _cartItems[productId];
   }
+
+  // cart_provider.dart માં આ method ઉમેરો
+// Clear all cart
+Future<void> clearCart(int userId) async {
+  try {
+    _isLoading = true;
+    notifyListeners();
+
+    // 🔥 Backend API call
+    await ApiService.clearCart(userId);
+    
+    // Local state પણ clear કરો
+    _cartItems.clear();
+    
+    _isLoading = false;
+    notifyListeners();
+    
+    log("✅ Cart cleared successfully");
+  } catch (e) {
+    log("❌ Error clearing cart: $e");
+    _isLoading = false;
+    notifyListeners();
+  }
+}
+
 }

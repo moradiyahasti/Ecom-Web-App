@@ -390,7 +390,7 @@ class _NailProductDetailsExactUIState extends State<NailProductDetailsExactUI>
               children: [
                 const Icon(
                   Icons.local_fire_department,
-                  color: Color(0xFFFF6B6B),
+                  color: Color(0xFF6C5CE7),
                   size: 20,
                 ),
                 const SizedBox(width: 8),
@@ -499,12 +499,12 @@ class _NailProductDetailsExactUIState extends State<NailProductDetailsExactUI>
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFFFF6B6B), Color(0xFFEE5A6F)],
+              colors: [Color(0xFF6C5CE7), Color(0xFFA29BFE)],
             ),
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFFF6B6B).withOpacity(0.3),
+                color: const Color(0xFF6C5CE7).withOpacity(0.3),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
