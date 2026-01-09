@@ -11,8 +11,8 @@ class ApiService {
   // 🔴 BASE URL
   // Web → localhost
   // Android Emulator → 10.0.2.2
-  // static const String baseUrl = "http://192.168.1.25:5000"; // office
-  static const String baseUrl = "http://192.168.0.105:5000"; // home
+  static const String baseUrl = "http://192.168.1.25:5000"; // office
+  // static const String baseUrl = "http://192.168.0.105:5000"; // home
 
   static const headers = {"Content-Type": "application/json"};
 
