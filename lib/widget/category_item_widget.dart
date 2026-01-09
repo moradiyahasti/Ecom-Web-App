@@ -94,7 +94,7 @@ class CategoryItem extends StatelessWidget {
 //         setState(() => _isHovered = false);
 //         _controller.reverse();
 //       },
-//       child: GestureDetector(
+//       child: InkWell(
 //         onTap: () {
 //           // Add navigation logic
 //         },

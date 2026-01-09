@@ -3,9 +3,10 @@ class GetCartItemMode {
   final int productId;
   final String title;
   final String subtitle;
-  final double price; 
-  int quantity; 
+  final double price;
+  int quantity;
   final String image;
+  final int userID;
 
   GetCartItemMode({
     required this.cartId,
@@ -15,6 +16,7 @@ class GetCartItemMode {
     required this.price,
     required this.quantity,
     required this.image,
+    required this.userID,
   });
 
   factory GetCartItemMode.fromJson(Map<String, dynamic> json) {
@@ -23,9 +25,10 @@ class GetCartItemMode {
       productId: json['product_id'],
       title: json['title'],
       subtitle: json['subtitle'] ?? "",
-      price: double.parse(json['price'].toString()), 
+      price: double.parse(json['price'].toString()),
       quantity: json['quantity'],
       image: json['image'] ?? "",
+      userID: json['user_id'],
     );
   }
 

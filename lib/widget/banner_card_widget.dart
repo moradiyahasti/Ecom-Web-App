@@ -124,7 +124,7 @@ class _AnimatedBannerCardState extends State<AnimatedBannerCard>
         setState(() => _isHovered = false);
         _controller.reverse();
       },
-      child: GestureDetector(
+      child: InkWell(
         onTap: () {
           // Add navigation logic
         },

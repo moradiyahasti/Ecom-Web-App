@@ -1,11 +1,11 @@
+import 'package:demo/screens/Auth/auth.dart';
+import 'package:demo/screens/Auth/dashboard_screen.dart';
 import 'package:demo/screens/splash_screen.dart';
+import 'package:demo/services/cart_provider.dart';
 import 'package:demo/services/provider.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
-
-import 'screens/auth.dart';
-import 'screens/dashboard_screen.dart';
 import 'services/token_service.dart';
 
 void main() async {
@@ -13,7 +13,11 @@ void main() async {
   await TokenService.getToken();
   runApp(
     MultiProvider(
-      providers: [ChangeNotifierProvider(create: (_) => FavoritesProvider())],
+      // providers: [ChangeNotifierProvider(create: (_) => FavoritesProvider())],
+      providers: [
+        ChangeNotifierProvider(create: (_) => FavoritesProvider()),
+        ChangeNotifierProvider(create: (_) => CartProvider()), // 🔥 Add this
+      ],
       child: const MyApp(),
     ),
   );

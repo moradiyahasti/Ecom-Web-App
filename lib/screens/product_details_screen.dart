@@ -2,15 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class NailProductDetailsExactUI extends StatefulWidget {
-  const NailProductDetailsExactUI({super.key});
+  final String title;
+  final String iamge;
+  final double oldPrice;
+  final int review;
+  final double price;
+
+  const NailProductDetailsExactUI({
+    super.key,
+    required this.title,
+    required this.iamge,
+    required this.oldPrice,
+    required this.review,
+    required this.price,
+  });
 
   @override
   State<NailProductDetailsExactUI> createState() =>
       _NailProductDetailsExactUIState();
 }
 
-class _NailProductDetailsExactUIState
-    extends State<NailProductDetailsExactUI> with SingleTickerProviderStateMixin {
+class _NailProductDetailsExactUIState extends State<NailProductDetailsExactUI>
+    with SingleTickerProviderStateMixin {
   int selectedImage = 0;
   int qty = 1;
   bool wishlist = false;
@@ -31,9 +44,10 @@ class _NailProductDetailsExactUIState
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.95,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -113,8 +127,8 @@ class _NailProductDetailsExactUIState
       builder: (context, constraints) {
         final isMobile = MediaQuery.of(context).size.width < 900;
         final thumbnailSize = isMobile ? 50.0 : 60.0;
-        final mainImageSize = isMobile 
-            ? constraints.maxWidth - thumbnailSize - 16 
+        final mainImageSize = isMobile
+            ? constraints.maxWidth - thumbnailSize - 16
             : 420.0;
 
         return Container(
@@ -135,7 +149,7 @@ class _NailProductDetailsExactUIState
             children: [
               Column(
                 children: List.generate(images.length, (i) {
-                  return GestureDetector(
+                  return InkWell(
                     onTap: () => setState(() => selectedImage = i),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
@@ -152,7 +166,9 @@ class _NailProductDetailsExactUIState
                         boxShadow: selectedImage == i
                             ? [
                                 BoxShadow(
-                                  color: const Color(0xFF6C5CE7).withOpacity(0.3),
+                                  color: const Color(
+                                    0xFF6C5CE7,
+                                  ).withOpacity(0.3),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -207,7 +223,7 @@ class _NailProductDetailsExactUIState
                     Positioned(
                       top: 12,
                       right: 12,
-                      child: GestureDetector(
+                      child: InkWell(
                         onTap: () => setState(() => wishlist = !wishlist),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 300),
@@ -261,19 +277,23 @@ class _NailProductDetailsExactUIState
           _badgeRow(),
           const SizedBox(height: 16),
           Text(
-            'Round Rainbow Tips Fake Nails',
+            widget.title,
             style: GoogleFonts.poppins(
               fontSize: 28,
               fontWeight: FontWeight.w700,
               height: 1.3,
               letterSpacing: -0.5,
+              color: Colors.black
             ),
           ),
           const SizedBox(height: 12),
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFFF3E0),
                   borderRadius: BorderRadius.circular(20),
@@ -294,7 +314,7 @@ class _NailProductDetailsExactUIState
               ),
               const SizedBox(width: 8),
               Text(
-                '(36 reviews)',
+                '(${widget.review} reviews)',
                 style: GoogleFonts.poppins(
                   color: Colors.grey.shade600,
                   fontSize: 14,
@@ -307,9 +327,9 @@ class _NailProductDetailsExactUIState
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '₹600',
+                '₹ ${widget.price}',
                 style: GoogleFonts.poppins(
-                  fontSize: 36,
+                  fontSize: 28,
                   fontWeight: FontWeight.bold,
                   color: const Color(0xFF6C5CE7),
                   height: 1,
@@ -319,9 +339,9 @@ class _NailProductDetailsExactUIState
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
-                  '₹1,099',
+                  '₹ ${widget.oldPrice}',
                   style: GoogleFonts.poppins(
-                    fontSize: 18,
+                    fontSize: 15,
                     decoration: TextDecoration.lineThrough,
                     color: Colors.grey.shade400,
                   ),
@@ -331,7 +351,10 @@ class _NailProductDetailsExactUIState
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE8F5E9),
                     borderRadius: BorderRadius.circular(6),
@@ -359,7 +382,9 @@ class _NailProductDetailsExactUIState
                 ],
               ),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF6C5CE7).withOpacity(0.3)),
+              border: Border.all(
+                color: const Color(0xFF6C5CE7).withOpacity(0.3),
+              ),
             ),
             child: Row(
               children: [
@@ -400,16 +425,14 @@ class _NailProductDetailsExactUIState
                 ],
               ),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF6C5CE7).withOpacity(0.3)),
+              border: Border.all(
+                color: const Color(0xFF6C5CE7).withOpacity(0.3),
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
-                  Icons.done,
-                  color: Color(0xFF6C5CE7),
-                  size: 18,
-                ),
+                const Icon(Icons.done, color: Color(0xFF6C5CE7), size: 18),
                 const SizedBox(width: 8),
                 Text(
                   'Both Hands',
@@ -437,7 +460,10 @@ class _NailProductDetailsExactUIState
               }),
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(10),
@@ -574,7 +600,10 @@ class _NailProductDetailsExactUIState
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.shopping_cart_outlined, color: Colors.white),
+                      const Icon(
+                        Icons.shopping_cart_outlined,
+                        color: Colors.white,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         'ADD TO CART',
@@ -693,15 +722,18 @@ class _NailProductDetailsExactUIState
     );
   }
 
-  Widget _deliveryStep(IconData icon, String label, String date, bool completed) {
+  Widget _deliveryStep(
+    IconData icon,
+    String label,
+    String date,
+    bool completed,
+  ) {
     return Column(
       children: [
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: completed
-                ? const Color(0xFF6C5CE7)
-                : Colors.grey.shade200,
+            color: completed ? const Color(0xFF6C5CE7) : Colors.grey.shade200,
             shape: BoxShape.circle,
             boxShadow: completed
                 ? [
@@ -730,10 +762,7 @@ class _NailProductDetailsExactUIState
         ),
         Text(
           date,
-          style: GoogleFonts.poppins(
-            fontSize: 11,
-            color: Colors.grey.shade500,
-          ),
+          style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey.shade500),
         ),
       ],
     );

@@ -1,10 +1,11 @@
 import 'dart:developer';
-
 import 'package:confetti/confetti.dart';
-import 'package:demo/models/get_cart_item_model.dart';
-import 'package:demo/services/api_service.dart';
+import 'package:demo/screens/Settings/payment_screen.dart';
+import 'package:demo/screens/address_screen.dart';
+import 'package:demo/services/cart_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -15,39 +16,35 @@ class CartScreen extends StatefulWidget {
 
 class CartScreenState extends State<CartScreen> {
   int shippingMode = 1;
+  bool isCouponApplied = false;
+  bool isInvalidCoupon = false;
+  int discountAmount = 0;
 
-  List<GetCartItemMode> cartItems = [];
-  bool isLoading = true;
+  final TextEditingController couponController = TextEditingController();
+  final ConfettiController _confettiController = ConfettiController(
+    duration: const Duration(seconds: 2),
+  );
+
+  final List<Map<String, dynamic>> coupons = [
+    {"code": "SAVE200", "discount": 200, "desc": "Save ₹200 on your order"},
+    {"code": "WELCOME100", "discount": 100, "desc": "Welcome offer ₹100 OFF"},
+    {"code": "FIRST50", "discount": 50, "desc": "Flat ₹50 OFF"},
+  ];
+
   @override
   void initState() {
     super.initState();
-    loadCart(); // 👈 આ લાઇન ઉમેરો
+    // 🔥 Load cart from provider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<CartProvider>().loadCart(1);
+    });
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    loadCart(); // 🔥 everytime screen opens
-  }
-
-  Future<void> loadCart() async {
-    try {
-      log("🔥 loadCart called");
-
-      final data = await ApiService.getCart(1);
-
-      setState(() {
-        cartItems = List<GetCartItemMode>.from(data); // 👈 VERY IMPORTANT
-        isLoading = false;
-      });
-
-      log("✅ cartItems length: ${cartItems.length}");
-    } catch (e) {
-      log("❌ Cart error: $e");
-      setState(() {
-        isLoading = false;
-      });
-    }
+  void dispose() {
+    couponController.dispose();
+    _confettiController.dispose();
+    super.dispose();
   }
 
   @override
@@ -57,7 +54,6 @@ class CartScreenState extends State<CartScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xffF8F9FB),
-      // appBar: _appBar(),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: isDesktop ? _desktopView() : _mobileView(),
@@ -71,135 +67,19 @@ class CartScreenState extends State<CartScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          /// LEFT
           Expanded(flex: 3, child: _leftSection()),
-
           const SizedBox(width: 24),
-
-          /// RIGHT
           Expanded(
             flex: 1,
             child: Column(
               children: [
-                if (!isCouponApplied) _bestCouponHint(), // 👈 SHOW THIS FIRST
+                if (!isCouponApplied) _bestCouponHint(),
                 _couponSection(),
                 const SizedBox(height: 10),
-
-                /// STICKY EFFECT
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    return Positioned.fill(
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: _orderSummary(),
-                      ),
-                    );
-                  },
-                ),
+                _orderSummary(),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  final List<Map<String, dynamic>> coupons = [
-    {"code": "SAVE200", "discount": 200, "desc": "Save ₹200 on your order"},
-    {"code": "WELCOME100", "discount": 100, "desc": "Welcome offer ₹100 OFF"},
-    {"code": "FIRST50", "discount": 50, "desc": "Flat ₹50 OFF"},
-  ];
-  String? appliedCoupon;
-  int discountAmount = 0;
-  void applyBestCoupon() {
-    coupons.sort((a, b) => b["discount"].compareTo(a["discount"]));
-
-    setState(() {
-      appliedCoupon = coupons.first["code"];
-      discountAmount = coupons.first["discount"];
-    });
-
-    _confettiController.play();
-  }
-
-  void showCouponSheet() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) {
-        return Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                "Available Coupons",
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              ...coupons.map((coupon) {
-                return ListTile(
-                  leading: const Icon(Icons.local_offer),
-                  title: Text(coupon["code"]),
-                  subtitle: Text(coupon["desc"]),
-                  trailing: TextButton(
-                    child: const Text("APPLY"),
-                    onPressed: () {
-                      setState(() {
-                        appliedCoupon = coupon["code"];
-                        discountAmount = coupon["discount"];
-                      });
-                      Navigator.pop(context);
-                      _confettiController.play();
-                    },
-                  ),
-                );
-              }).toList(),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget couponSummary() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: appliedCoupon == null
-            ? const Color(0xffF5F3FF)
-            : const Color(0xffE8FFF1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              appliedCoupon == null
-                  ? "Best coupon available"
-                  : "Coupon $appliedCoupon applied (₹$discountAmount OFF)",
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
-            ),
-          ),
-
-          if (appliedCoupon == null)
-            TextButton(onPressed: showCouponSheet, child: const Text("VIEW"))
-          else
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  appliedCoupon = null;
-                  discountAmount = 0;
-                });
-              },
-              child: const Text("REMOVE"),
-            ),
         ],
       ),
     );
@@ -212,43 +92,14 @@ class CartScreenState extends State<CartScreen> {
       child: Column(
         children: [
           _leftSection(),
-
           const SizedBox(height: 20),
-
-          /// 🔥 BEST COUPON (TOP ORANGE BOX)
           if (!isCouponApplied) _bestCouponHint(),
-
           const SizedBox(height: 10),
-
-          /// 💜 UNLOCK YOUR SAVINGS (INPUT + APPLY)
           _couponSection(),
-
           const SizedBox(height: 10),
-
-          /// 🧾 ORDER SUMMARY
           _orderSummary(),
         ],
       ),
-    );
-  }
-
-  // ================= APP BAR =================
-  PreferredSizeWidget _appBar() {
-    return AppBar(
-      elevation: 0,
-      backgroundColor: const Color(0xffF8F9FB),
-      centerTitle: true,
-      surfaceTintColor: Colors.transparent,
-      title: Text(
-        "My Cart",
-        style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w600),
-      ),
-      actions: [
-        Icon(Icons.notifications_none, color: Colors.deepPurple),
-        const SizedBox(width: 16),
-        const CircleAvatar(radius: 16),
-        const SizedBox(width: 16),
-      ],
     );
   }
 
@@ -257,11 +108,9 @@ class CartScreenState extends State<CartScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        /// HEADER ROW (Left + Right text)
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            /// LEFT SIDE
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -285,8 +134,6 @@ class CartScreenState extends State<CartScreen> {
                 ],
               ),
             ),
-
-            /// RIGHT SIDE
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -306,22 +153,48 @@ class CartScreenState extends State<CartScreen> {
             ),
           ],
         ),
-
         const SizedBox(height: 16),
-
-        /// CART TABLE
         _cartTable(),
-
         const SizedBox(height: 24),
-
-        /// SHIPPING MODE
         _shippingMode(),
       ],
     );
   }
 
   Widget _cartTable() {
+    // 🔥 Provider માંથી cart items લો
+    final cartProvider = context.watch<CartProvider>();
+    final cartItems = cartProvider.cartItems;
+    final isLoading = cartProvider.isLoading;
+
     final isMobile = MediaQuery.of(context).size.width < 700;
+
+    if (isLoading) {
+      return Container(
+        padding: const EdgeInsets.all(40),
+        decoration: _box(),
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (cartItems.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(40),
+        decoration: _box(),
+        child: Center(
+          child: Column(
+            children: [
+              Icon(Icons.shopping_cart_outlined, size: 60, color: Colors.grey),
+              const SizedBox(height: 16),
+              Text(
+                "Your cart is empty",
+                style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -329,7 +202,6 @@ class CartScreenState extends State<CartScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          /// 📱 MOBILE UNIQUE INFO
           if (isMobile)
             Container(
               padding: const EdgeInsets.all(12),
@@ -360,11 +232,7 @@ class CartScreenState extends State<CartScreen> {
                 ],
               ),
             ),
-
-          /// 💻 WEB HEADER
           if (!isMobile) ...[_cartHeader(), const Divider(height: 24)],
-
-          /// 🛒 CART ITEMS
           for (int i = 0; i < cartItems.length; i++) _cartItem(i),
         ],
       ),
@@ -384,16 +252,14 @@ class CartScreenState extends State<CartScreen> {
     );
   }
 
-  bool _isMobile(BuildContext context) {
-    return MediaQuery.of(context).size.width < 700;
-  }
-
   Widget _cartItem(int index) {
-    return _isMobile(context) ? _cartItemMobile(index) : _cartItemWeb(index);
+    final isMobile = MediaQuery.of(context).size.width < 700;
+    return isMobile ? _cartItemMobile(index) : _cartItemWeb(index);
   }
 
   Widget _cartItemMobile(int index) {
-    final item = cartItems[index];
+    final cartProvider = context.read<CartProvider>();
+    final item = cartProvider.cartItems[index];
     final int itemTotal = (item.price * item.quantity).toInt();
 
     return Container(
@@ -403,7 +269,6 @@ class CartScreenState extends State<CartScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          /// 🖼 IMAGE
           Container(
             height: 60,
             width: 60,
@@ -416,10 +281,7 @@ class CartScreenState extends State<CartScreen> {
               ),
             ),
           ),
-
           const SizedBox(width: 12),
-
-          /// 📦 DETAILS (TITLE, PRICE, QTY)
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -439,27 +301,17 @@ class CartScreenState extends State<CartScreen> {
                   style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
                 ),
                 const SizedBox(height: 8),
-                Container(child: _qtyCounter(index)),
+                _qtyCounter(item.productId, item.quantity),
               ],
             ),
           ),
-
-          /// ❌ CLOSE BUTTON
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               IconButton(
                 icon: const Icon(Icons.close, size: 20),
                 onPressed: () async {
-                  final cartId = cartItems[index].cartId;
-                  try {
-                    await ApiService.removeFromCart(cartId);
-                    setState(() => cartItems.removeAt(index));
-                  } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Failed to remove item")),
-                    );
-                  }
+                  await cartProvider.removeFromCart(1, item.productId);
                 },
               ),
               Text(
@@ -474,8 +326,8 @@ class CartScreenState extends State<CartScreen> {
   }
 
   Widget _cartItemWeb(int index) {
-    final item = cartItems[index];
-    // final int itemTotal = item.price * item.quantity;
+    final cartProvider = context.read<CartProvider>();
+    final item = cartProvider.cartItems[index];
     final int itemTotal = (item.price * item.quantity).toInt();
 
     return Padding(
@@ -512,7 +364,7 @@ class CartScreenState extends State<CartScreen> {
               ],
             ),
           ),
-          _qtyCounter(index),
+          _qtyCounter(item.productId, item.quantity),
           Expanded(
             child: Text(
               "₹ $itemTotal",
@@ -522,9 +374,7 @@ class CartScreenState extends State<CartScreen> {
           IconButton(
             icon: const Icon(Icons.close),
             onPressed: () async {
-              final cartId = cartItems[index].cartId;
-              await ApiService.removeFromCart(cartId);
-              setState(() => cartItems.removeAt(index));
+              await cartProvider.removeFromCart(1, item.productId);
             },
           ),
         ],
@@ -532,7 +382,8 @@ class CartScreenState extends State<CartScreen> {
     );
   }
 
-  Widget _qtyCounter(int index) {
+  Widget _qtyCounter(int productId, int quantity) {
+    final cartProvider = context.read<CartProvider>();
     final isMobile = MediaQuery.of(context).size.width < 700;
 
     return Container(
@@ -548,20 +399,15 @@ class CartScreenState extends State<CartScreen> {
         children: [
           _qtyButton(
             icon: Icons.remove,
-            onTap: () {
-              if (cartItems[index].quantity > 1) {
-                setState(() => cartItems[index].quantity--);
-              }
+            onTap: () async {
+              await cartProvider.decrementQuantity(1, productId);
             },
           ),
-          Text(
-            cartItems[index].quantity.toString(),
-            style: const TextStyle(fontSize: 13),
-          ),
+          Text(quantity.toString(), style: const TextStyle(fontSize: 13)),
           _qtyButton(
             icon: Icons.add,
-            onTap: () {
-              setState(() => cartItems[index].quantity++);
+            onTap: () async {
+              await cartProvider.incrementQuantity(1, productId);
             },
           ),
         ],
@@ -576,9 +422,6 @@ class CartScreenState extends State<CartScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          hoverColor: Colors.transparent,
-          splashColor: Colors.transparent,
-          highlightColor: Colors.transparent,
           onTap: onTap,
           child: Center(child: Icon(icon, size: 14)),
         ),
@@ -604,7 +447,7 @@ class CartScreenState extends State<CartScreen> {
           const SizedBox(height: 12),
           _shippingTile(
             value: 1,
-            title: "Home delivery (₹2,000)",
+            title: "Home delivery (₹330)",
             subtitle: "2 - 4 days",
             address: "12 Adenuga Street, Tajudeen Avenue, Ikeja, Lagos State.",
           ),
@@ -674,21 +517,7 @@ class CartScreenState extends State<CartScreen> {
     );
   }
 
-  bool isCouponApplied = false;
-  bool isInvalidCoupon = false;
-
-  final TextEditingController couponController = TextEditingController();
-  final ConfettiController _confettiController = ConfettiController(
-    duration: const Duration(seconds: 2),
-  );
-  @override
-  void dispose() {
-    couponController.dispose();
-    _confettiController.dispose();
-    super.dispose();
-  }
-
-  // COUPE SECTION =============================
+  // ================= COUPON SECTION =================
   Widget _couponSection() {
     return Stack(
       children: [
@@ -709,19 +538,10 @@ class CartScreenState extends State<CartScreen> {
                   ? Colors.green
                   : Colors.deepPurple.shade100,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: isCouponApplied
-                    ? Colors.green.withOpacity(.25)
-                    : Colors.black.withOpacity(.06),
-                blurRadius: 14,
-              ),
-            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              /// TITLE + BADGE
               Row(
                 children: [
                   Text(
@@ -756,46 +576,28 @@ class CartScreenState extends State<CartScreen> {
                     ),
                 ],
               ),
-
               const SizedBox(height: 6),
-
               Text(
                 isCouponApplied
-                    ? "You saved ₹200 on this order"
+                    ? "You saved ₹$discountAmount on this order"
                     : "Apply exclusive coupon & celebrate your discount",
                 style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
               ),
-
               const SizedBox(height: 16),
-
-              /// INPUT + APPLY BUTTON
               Row(
                 children: [
                   Expanded(
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      transform: isInvalidCoupon
-                          ? Matrix4.translationValues(8, 0, 0)
-                          : Matrix4.identity(),
-                      child: TextField(
-                        readOnly: true,
-                        style: GoogleFonts.poppins(
-                          fontSize: 15,
-                          color: Colors.green,
-                        ),
-                        controller: couponController,
-                        decoration: InputDecoration(
-                          hintText: "Enter coupon code",
-                          hintStyle: GoogleFonts.poppins(fontSize: 12),
-                          errorText: isInvalidCoupon
-                              ? "Invalid coupon code"
-                              : null,
-                          isDense: true,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-
-                            borderSide: BorderSide(color: Colors.green),
-                          ),
+                    child: TextField(
+                      controller: couponController,
+                      decoration: InputDecoration(
+                        hintText: "Enter coupon code",
+                        hintStyle: GoogleFonts.poppins(fontSize: 12),
+                        errorText: isInvalidCoupon
+                            ? "Invalid coupon code"
+                            : null,
+                        isDense: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
                     ),
@@ -814,7 +616,6 @@ class CartScreenState extends State<CartScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                       ),
-                      elevation: 0,
                     ),
                     child: Text(
                       isCouponApplied ? "Applied" : "Apply",
@@ -829,8 +630,6 @@ class CartScreenState extends State<CartScreen> {
             ],
           ),
         ),
-
-        /// CONFETTI
         Positioned.fill(
           child: ConfettiWidget(
             confettiController: _confettiController,
@@ -841,8 +640,6 @@ class CartScreenState extends State<CartScreen> {
               Colors.deepPurple,
               Colors.orange,
               Colors.pink,
-              Colors.brown,
-              Colors.blue,
             ],
           ),
         ),
@@ -855,12 +652,11 @@ class CartScreenState extends State<CartScreen> {
       setState(() {
         isCouponApplied = true;
         isInvalidCoupon = false;
+        discountAmount = 200;
       });
-      _confettiController.play(); // 🎉 celebration
+      _confettiController.play();
     } else {
-      setState(() {
-        isInvalidCoupon = true;
-      });
+      setState(() => isInvalidCoupon = true);
     }
   }
 
@@ -877,7 +673,6 @@ class CartScreenState extends State<CartScreen> {
         children: [
           const Icon(Icons.local_offer, color: Colors.orange),
           const SizedBox(width: 10),
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -897,52 +692,32 @@ class CartScreenState extends State<CartScreen> {
               ],
             ),
           ),
-
-          TextButton(onPressed: _applyBestCoupon, child: const Text("APPLY")),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                couponController.text = "SAVE200";
+                isCouponApplied = true;
+                isInvalidCoupon = false;
+                discountAmount = 200;
+              });
+              _confettiController.play();
+            },
+            child: const Text("APPLY"),
+          ),
         ],
       ),
     );
   }
 
-  void _applyBestCoupon() {
-    setState(() {
-      couponController.text = "SAVE200"; // 👈 THIS IS THE ANSWER
-      isCouponApplied = true;
-      isInvalidCoupon = false;
-    });
-
-    _confettiController.play(); // 🎉
-  }
-
-  void applyCoupon(String code) {
-    if (code == "SAVE200") {
-      setState(() {
-        appliedCoupon = code;
-        discountAmount = 200; // 👈 HERE
-      });
-    }
-  }
-
-  double get subtotal {
-    return cartItems.fold<double>(
-      0.0,
-      (sum, item) => sum + (item.price * item.quantity),
-    );
-  }
-
-  int get tax => 2500;
-  int get shippingCost => shippingMode == 1 ? 2000 : 0;
-
-  double get total => subtotal + tax + shippingCost - discountAmount;
-  // double total = cartItems.fold<double>(
-  //   0.0,
-  //   (sum, item) => sum + (item.price * item.quantity),
-  // );
-
-  // Text("Total: ₹${total.toStringAsFixed(0)}")
-
-  // ================= SUMMARY =================
+  // ================= ORDER SUMMARY =================
   Widget _orderSummary() {
+    // 🔥 Provider માંથી totals લો
+    final cartProvider = context.watch<CartProvider>();
+    final subtotal = cartProvider.totalPrice;
+    final tax = 80;
+    final shippingCost = shippingMode == 1 ? 130 : 0;
+    final total = subtotal + tax + shippingCost - discountAmount;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: _box(),
@@ -951,19 +726,13 @@ class CartScreenState extends State<CartScreen> {
         children: [
           _title("Order summary"),
           const SizedBox(height: 12),
-
-          _row("Subtotal", "₹ $subtotal"),
+          _row("Subtotal", "₹ ${subtotal.toInt()}"),
           _row("Tax", "₹ $tax"),
           _row("Shipping", "₹ $shippingCost"),
-
-          /// 👇 NEW DISCOUNT ROW
           if (discountAmount > 0) _row("Discount", "- ₹ $discountAmount"),
-
           const Divider(),
-
-          _row("Total", "₹ $total", bold: true),
+          _row("Total", "₹ ${total.toInt()}", bold: true),
           const SizedBox(height: 16),
-
           SizedBox(
             width: double.infinity,
             height: 48,
@@ -974,7 +743,29 @@ class CartScreenState extends State<CartScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              onPressed: () {},
+              onPressed: () {
+                final cartProvider = context.read<CartProvider>();
+                final subtotal = cartProvider.totalPrice;
+                final tax = 80;
+                final shippingCost = shippingMode == 1 ? 130 : 0;
+                final total = subtotal + tax + shippingCost - discountAmount;
+                final cartItems = cartProvider.cartItems;
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AddressScreen(
+                      subtotal: subtotal,
+                      tax: tax.toDouble(),
+                      shipping: shippingCost.toDouble(),
+                      discount: discountAmount.toDouble(),
+                      total: total.toDouble(),
+                      cartItems: cartItems, 
+                    ),
+                  ),
+                );
+              },
+
               child: Text(
                 "Proceed to payment",
                 style: GoogleFonts.poppins(color: Colors.white),

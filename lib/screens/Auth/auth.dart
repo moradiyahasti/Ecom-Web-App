@@ -1,4 +1,4 @@
-import 'package:demo/screens/dashboard_screen.dart';
+import 'package:demo/screens/Auth/dashboard_screen.dart';
 import 'package:demo/services/api_service.dart';
 import 'package:demo/services/token_service.dart';
 import 'package:flutter/material.dart';
@@ -158,6 +158,8 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
         token: data["token"],
         name: data["user"]["name"],
         email: data["user"]["email"],
+
+        userId: data['user']['id'], // ✅ VERY IMPORTANT
       );
 
       _showCustomSnackBar(
@@ -840,7 +842,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
   }
 
   Widget _link(String text, VoidCallback onTap) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
       child: Text(
         text,
@@ -855,7 +857,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
 
   Widget _bottomText(String text, String action, VoidCallback onTap) {
     return Center(
-      child: GestureDetector(
+      child: InkWell(
         onTap: onTap,
         child: RichText(
           text: TextSpan(

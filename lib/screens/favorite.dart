@@ -726,7 +726,7 @@ class _AnimatedProductCardState extends State<_AnimatedProductCard>
       position: _slideAnimation,
       child: ScaleTransition(
         scale: _scaleAnimation,
-        child: GestureDetector(
+        child: InkWell(
           onTapDown: (_) => setState(() => _isPressed = true),
           onTapUp: (_) => setState(() => _isPressed = false),
           onTapCancel: () => setState(() => _isPressed = false),

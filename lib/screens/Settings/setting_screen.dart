@@ -1,6 +1,9 @@
 // ignore_for_file: deprecated_member_use
 
+import 'dart:developer';
+
 import 'package:demo/screens/Settings/edit_profile.dart';
+import 'package:demo/services/token_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -22,6 +25,21 @@ class _SettingsScreenState extends State<SettingsScreen>
   bool emailUpdates = true;
   bool pushNotifications = true;
 
+  String name = "";
+  String email = "";
+
+  void loadUser() async {
+    final n = await TokenService.getName();
+    final e = await TokenService.getEmail();
+
+    setState(() {
+      name = n ?? "";
+      email = e ?? "";
+    });
+
+    log("----------------$name---------------");
+  }
+
   @override
   void initState() {
     super.initState();
@@ -34,6 +52,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       curve: Curves.easeInOut,
     );
     _controller.forward();
+    loadUser();
   }
 
   @override
@@ -188,10 +207,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) =>
-                                          const EditProfileScreen(),
+                                      builder: (_) => const EditProfileScreen(),
                                     ),
-                                  );
+                                  ).then((_) {
+                                    // Screen પર પાછા આવતી વખતે loadUser() કોલ કરો
+                                    loadUser();
+                                  });
                                 },
                                 trailing: Icons.arrow_forward_ios,
                               ),
@@ -404,7 +425,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'John Doe',
+                  name,
                   style: GoogleFonts.poppins(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
@@ -413,7 +434,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'john.doe@example.com',
+                  email,
                   style: GoogleFonts.poppins(
                     fontSize: 14,
                     color: Colors.white.withOpacity(0.9),
@@ -1072,19 +1093,8 @@ class _EditProfileScreenState extends State<EditProfileScreen>
                   label: 'Email',
                   icon: Icons.email_outlined,
                 ),
-                const SizedBox(height: 16),
-                _buildTextField(
-                  controller: _phoneController,
-                  label: 'Phone Number',
-                  icon: Icons.phone_outlined,
-                ),
-                const SizedBox(height: 16),
-                _buildTextField(
-                  controller: _addressController,
-                  label: 'Address',
-                  icon: Icons.location_on_outlined,
-                  maxLines: 2,
-                ),
+
+                // const SizedBox(height: 16),
                 const SizedBox(height: 30),
                 _buildSaveButton(),
                 const SizedBox(height: 20),
@@ -1875,7 +1885,7 @@ class HelpSupportScreen extends StatelessWidget {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(20),
