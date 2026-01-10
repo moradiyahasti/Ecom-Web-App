@@ -15,7 +15,7 @@ class NailProductDetailsExactUI extends StatefulWidget {
     required this.oldPrice,
     required this.review,
     required this.price,
-  });
+  }); 
 
   @override
   State<NailProductDetailsExactUI> createState() =>

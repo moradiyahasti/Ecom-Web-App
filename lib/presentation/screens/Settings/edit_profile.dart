@@ -264,96 +264,151 @@ class _EditProfileScreenState extends State<EditProfileScreen>
     );
   }
 
-  
   Widget _buildSaveButton() {
-  return Container(
-    width: double.infinity,
-    height: 56,
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [Color(0xFF6C5CE7), Color(0xFFA29BFE)],
-      ),
-      borderRadius: BorderRadius.circular(16),
-      boxShadow: [
-        BoxShadow(
-          color: const Color(0xFF6C5CE7).withOpacity(0.3),
-          blurRadius: 20,
-          offset: const Offset(0, 8),
+    return Container(
+      width: double.infinity,
+      height: 56,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF6C5CE7), Color(0xFFA29BFE)],
         ),
-      ],
-    ),
-    child: ElevatedButton(
-      onPressed: () async {
-        final name = nameController.text.trim();
-        final email = emailController.text.trim();
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6C5CE7).withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: () async {
+          final name = nameController.text.trim();
+          final email = emailController.text.trim();
 
-        // 🔐 Basic validation
-        if (name.isEmpty || email.isEmpty) {
-          _showCustomSnackBar(
-            message: "Name & Email required",
-            isSuccess: false,
-          );
-          return;
-        }
-
-        try {
-          // 🔑 Get token
-          final token = await TokenService.getToken();
-
-          if (token == null) {
+          // 🔐 Basic validation
+          if (name.isEmpty || email.isEmpty) {
             _showCustomSnackBar(
-              message: "Session expired, login again",
+              message: "Name & Email required",
               isSuccess: false,
             );
             return;
           }
 
-          // 🚀 API CALL
-          final updatedUser = await ApiService.updateProfile(
-            token: token,
-            name: name,
-            email: email,
-          );
+          try {
+            // 🔑 Get token
+            final token = await TokenService.getToken();
 
-          if (updatedUser != null) {
-            // 💾 SAVE UPDATED DATA LOCALLY
-            await TokenService.saveName(updatedUser['name']);
-            await TokenService.saveEmail(updatedUser['email']);
+            if (token == null) {
+              _showCustomSnackBar(
+                message: "Session expired, login again",
+                isSuccess: false,
+              );
+              return;
+            }
 
-            // ✅ SUCCESS MESSAGE
-            if (!mounted) return;
-            _showCustomSnackBar(
-              message: "Profile updated successfully",
-              isSuccess: true,
+            // 🚀 API CALL
+            final updatedUser = await ApiService.updateProfile(
+              token: token,
+              name: name,
+              email: email,
             );
 
-            // 🔄 OPTIONAL: go back
-            Navigator.pop(context);
-          } else {
-            throw Exception("Update failed");
-          }
-        } catch (e) {
-          debugPrint("❌ UPDATE PROFILE ERROR: $e");
+            if (updatedUser != null) {
+              // 💾 SAVE UPDATED DATA LOCALLY
+              await TokenService.saveName(updatedUser['name']);
+              await TokenService.saveEmail(updatedUser['email']);
 
-          _showCustomSnackBar(
-            message: "Failed to update profile",
-            isSuccess: false,
-          );
-        }
-      },
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.transparent,
-        shadowColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+              // ✅ SUCCESS MESSAGE
+              if (!mounted) return;
+              _showCustomSnackBar(
+                message: "Profile updated successfully",
+                isSuccess: true,
+              );
+
+              // 🔄 OPTIONAL: go back
+              Navigator.pop(context);
+            } else {
+              throw Exception("Update failed");
+            }
+          } catch (e) {
+            debugPrint("❌ UPDATE PROFILE ERROR: $e");
+
+            _showCustomSnackBar(
+              message: "Failed to update profile",
+              isSuccess: false,
+            );
+          }
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: Text(
+          "Save Changes",
+          style: GoogleFonts.poppins(color: Colors.white),
         ),
       ),
-      child: Text(
-        "Save Changes",
-        style: GoogleFonts.poppins(color: Colors.white),
+    );
+  }
+
+  void _showCustomSnackBar({required String message, required bool isSuccess}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                isSuccess ? Icons.check_circle_outline : Icons.error_outline,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    isSuccess ? "Success!" : "Error",
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    message,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.white.withOpacity(0.9),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: isSuccess
+            ? Colors.green.shade600
+            : Colors.red.shade600,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        duration: const Duration(seconds: 3),
+        elevation: 8,
       ),
-    ),
-  );
-}
-void _showCustomSnackBar({required String message, required bool isSuccess}) { ScaffoldMessenger.of(context).showSnackBar( SnackBar( content: Row( children: [ Container( padding: const EdgeInsets.all(8), decoration: BoxDecoration( color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8), ), child: Icon( isSuccess ? Icons.check_circle_outline : Icons.error_outline, color: Colors.white, size: 24, ), ), const SizedBox(width: 12), Expanded( child: Column( crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [ Text( isSuccess ? "Success!" : "Error", style: GoogleFonts.poppins( fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white, ), ), const SizedBox(height: 2), Text( message, style: GoogleFonts.poppins( fontSize: 12, color: Colors.white.withOpacity(0.9), ), ), ], ), ), ], ), backgroundColor: isSuccess ? Colors.green.shade600 : Colors.red.shade600, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), margin: const EdgeInsets.all(16), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), duration: const Duration(seconds: 3), elevation: 8, ), ); }
+    );
+  }
 }
