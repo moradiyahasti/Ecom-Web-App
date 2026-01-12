@@ -160,14 +160,12 @@ class _MainLayoutState extends State<MainLayout> {
 
     _overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
-        width: isMobile(context) 
-            ? MediaQuery.of(context).size.width - 32
-            : 350,
+        width: isMobile(context) ? MediaQuery.of(context).size.width - 32 : 350,
         child: CompositedTransformFollower(
           link: _layerLink,
           showWhenUnlinked: false,
           offset: Offset(
-            isMobile(context) ? 16 : 0, 
+            isMobile(context) ? 16 : 0,
             isMobile(context) ? 60 : 55, // Below AppBar
           ),
           child: Material(
