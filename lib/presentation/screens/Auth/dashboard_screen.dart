@@ -29,12 +29,13 @@ class _MainLayoutState extends State<MainLayout> {
   String name = "";
   String email = "";
 
-  // 🔍 SEARCH VARIABLES (for desktop)
+  // 🔍 SEARCH VARIABLES
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  final LayerLink _layerLink = LayerLink(); // 🔥 For positioning overlay
+  OverlayEntry? _overlayEntry;
   List<Product> _searchResults = [];
   bool _isSearching = false;
-  bool _showSearchResults = false;
   Timer? _searchDebounce;
   String _searchErrorMessage = '';
 
@@ -71,6 +72,15 @@ class _MainLayoutState extends State<MainLayout> {
         }
       });
     }
+
+    // 🔥 Listen to focus changes
+    _searchFocusNode.addListener(_onFocusChange);
+  }
+
+  void _onFocusChange() {
+    if (_searchFocusNode.hasFocus && _searchController.text.isNotEmpty) {
+      _showOverlay();
+    }
   }
 
   @override
@@ -78,11 +88,16 @@ class _MainLayoutState extends State<MainLayout> {
     _searchController.dispose();
     _searchFocusNode.dispose();
     _searchDebounce?.cancel();
+    _removeOverlay();
     super.dispose();
   }
 
   void _changePage(int index) {
     if (index < 0 || index >= pages.length) return;
+
+    // 🔥 Close search when changing pages
+    _removeOverlay();
+    _searchFocusNode.unfocus();
 
     setState(() => selectedIndex = index);
 
@@ -96,9 +111,9 @@ class _MainLayoutState extends State<MainLayout> {
     if (query.trim().isEmpty) {
       setState(() {
         _searchResults = [];
-        _showSearchResults = false;
         _searchErrorMessage = '';
       });
+      _removeOverlay();
       return;
     }
 
@@ -113,18 +128,21 @@ class _MainLayoutState extends State<MainLayout> {
       setState(() {
         _searchResults = results;
         _isSearching = false;
-        _showSearchResults = true;
 
         if (results.isEmpty) {
           _searchErrorMessage = 'No products found for "$query"';
         }
       });
+
+      // 🔥 Show overlay with results
+      _showOverlay();
     } catch (e) {
       setState(() {
         _searchResults = [];
         _isSearching = false;
         _searchErrorMessage = 'Error searching products';
       });
+      _showOverlay();
     }
   }
 
@@ -136,177 +154,109 @@ class _MainLayoutState extends State<MainLayout> {
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      drawer: isMobile(context) ? Drawer(child: _drawerItems()) : null,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        leading: isMobile(context)
-            ? Builder(
-                builder: (context) => IconButton(
-                  icon: const Icon(Icons.menu, color: Colors.deepPurple),
-                  onPressed: () => Scaffold.of(context).openDrawer(),
-                ),
-              )
-            : null,
-        title: isMobile(context)
-            ? searchField()
-            : Row(
-                children: [
-                  Text(
-                    "Shop Name",
-                    style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 18,
-                    ),
-                  ),
-                  const Spacer(),
-                  // 🔍 DESKTOP SEARCH with RESULTS
-                  SizedBox(
-                    width: 350,
-                    child: Column(
-                      children: [
-                        searchField(
-                          controller: _searchController,
-                          focusNode: _searchFocusNode,
-                          onChanged: _onSearchChanged,
-                          onTap: () {
-                            if (_searchController.text.isNotEmpty) {
-                              setState(() => _showSearchResults = true);
-                            }
-                          },
-                          isSearching: _isSearching,
-                          showClearButton: _searchController.text.isNotEmpty,
-                          onClear: () {
-                            _searchController.clear();
-                            setState(() {
-                              _searchResults = [];
-                              _showSearchResults = false;
-                              _searchErrorMessage = '';
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Spacer(),
-                ],
-              ),
-        actions: [
-          _appBarIcon(
-            onTap: () => _changePage(2),
-            asset: "assets/favorite.svg",
+  // 🔥 SHOW OVERLAY
+  void _showOverlay() {
+    _removeOverlay(); // Remove existing first
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        width: isMobile(context) 
+            ? MediaQuery.of(context).size.width - 32
+            : 350,
+        child: CompositedTransformFollower(
+          link: _layerLink,
+          showWhenUnlinked: false,
+          offset: Offset(
+            isMobile(context) ? 16 : 0, 
+            isMobile(context) ? 60 : 55, // Below AppBar
           ),
-          _cartIconWithBadge(),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: Stack(
-        children: [
-          Row(
-            children: [
-              if (!isMobile(context))
-                SizedBox(width: 250, child: _drawerItems()),
-              Expanded(
-                child: IndexedStack(
-                  index: selectedIndex.clamp(0, pages.length - 1),
-                  children: pages,
-                ),
-              ),
-            ],
-          ),
-
-          // 🔍 DESKTOP SEARCH RESULTS OVERLAY
-          if (_showSearchResults && !isMobile(context))
-            _buildSearchResultsOverlay(),
-        ],
-      ),
-    );
-  }
-
-  // 🔍 SEARCH RESULTS OVERLAY (Desktop)
-  Widget _buildSearchResultsOverlay() {
-    return GestureDetector(
-      onTap: () {
-        setState(() => _showSearchResults = false);
-        _searchFocusNode.unfocus();
-      },
-      child: Container(
-        color: Colors.black.withOpacity(0.3),
-        child: Center(
-          child: Container(
-            width: 500,
-            margin: const EdgeInsets.only(top: 70),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            constraints: const BoxConstraints(maxHeight: 500),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // HEADER
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.deepPurple.shade50,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(12),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        _searchErrorMessage.isEmpty
-                            ? 'Found ${_searchResults.length} products'
-                            : 'Search Results',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.deepPurple,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        color: Colors.deepPurple,
-                        onPressed: () {
-                          setState(() => _showSearchResults = false);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-
-                // RESULTS
-                Flexible(
-                  child: _searchErrorMessage.isNotEmpty
-                      ? _buildNoResults()
-                      : ListView.builder(
-                          shrinkWrap: true,
-                          padding: const EdgeInsets.all(12),
-                          itemCount: _searchResults.length,
-                          itemBuilder: (context, index) {
-                            return _buildSearchResultItem(
-                              _searchResults[index],
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
+          child: Material(
+            elevation: 8,
+            borderRadius: BorderRadius.circular(12),
+            child: _buildSearchResultsCard(),
           ),
         ),
+      ),
+    );
+
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  // 🔥 REMOVE OVERLAY
+  void _removeOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  // 📋 SEARCH RESULTS CARD
+  Widget _buildSearchResultsCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.deepPurple.withOpacity(0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 20,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      constraints: const BoxConstraints(maxHeight: 400),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // HEADER
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.deepPurple.shade50,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _searchErrorMessage.isEmpty
+                      ? 'Found ${_searchResults.length} products'
+                      : 'Search Results',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.deepPurple,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  color: Colors.deepPurple,
+                  onPressed: () {
+                    _removeOverlay();
+                    _searchFocusNode.unfocus();
+                  },
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ),
+
+          // RESULTS
+          Flexible(
+            child: _searchErrorMessage.isNotEmpty
+                ? _buildNoResults()
+                : ListView.builder(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.all(8),
+                    itemCount: _searchResults.length,
+                    itemBuilder: (context, index) {
+                      return _buildSearchResultItem(_searchResults[index]);
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -318,23 +268,23 @@ class _MainLayoutState extends State<MainLayout> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.search_off, size: 60, color: Colors.grey.shade400),
+          Icon(Icons.search_off, size: 50, color: Colors.grey.shade400),
           const SizedBox(height: 16),
           Text(
             _searchErrorMessage,
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
-              fontSize: 16,
+              fontSize: 14,
               fontWeight: FontWeight.w500,
               color: Colors.grey.shade700,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Try searching with different keywords',
+            'Try different keywords',
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
-              fontSize: 13,
+              fontSize: 12,
               color: Colors.grey.shade500,
             ),
           ),
@@ -347,7 +297,7 @@ class _MainLayoutState extends State<MainLayout> {
   Widget _buildSearchResultItem(Product product) {
     return InkWell(
       onTap: () {
-        setState(() => _showSearchResults = false);
+        _removeOverlay();
         _searchFocusNode.unfocus();
 
         Navigator.push(
@@ -368,7 +318,7 @@ class _MainLayoutState extends State<MainLayout> {
         );
       },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
+        margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.grey.shade50,
@@ -381,14 +331,14 @@ class _MainLayoutState extends State<MainLayout> {
               borderRadius: BorderRadius.circular(6),
               child: Image.network(
                 product.image,
-                width: 60,
-                height: 60,
+                width: 50,
+                height: 50,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
-                  width: 60,
-                  height: 60,
+                  width: 50,
+                  height: 50,
                   color: Colors.grey.shade300,
-                  child: const Icon(Icons.image, size: 30),
+                  child: const Icon(Icons.image, size: 25),
                 ),
               ),
             ),
@@ -402,7 +352,7 @@ class _MainLayoutState extends State<MainLayout> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.poppins(
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -412,16 +362,16 @@ class _MainLayoutState extends State<MainLayout> {
                       Text(
                         '₹${product.price}',
                         style: GoogleFonts.poppins(
-                          fontSize: 16,
+                          fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: Colors.deepPurple,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       Text(
                         '₹${product.oldPrice}',
                         style: GoogleFonts.poppins(
-                          fontSize: 13,
+                          fontSize: 11,
                           color: Colors.grey,
                           decoration: TextDecoration.lineThrough,
                         ),
@@ -431,7 +381,116 @@ class _MainLayoutState extends State<MainLayout> {
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+            const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      // 🔥 Tap outside to close search
+      onTap: () {
+        _removeOverlay();
+        _searchFocusNode.unfocus();
+      },
+      child: Scaffold(
+        drawer: isMobile(context) ? Drawer(child: _drawerItems()) : null,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          surfaceTintColor: Colors.transparent,
+          leading: isMobile(context)
+              ? Builder(
+                  builder: (context) => IconButton(
+                    icon: const Icon(Icons.menu, color: Colors.deepPurple),
+                    onPressed: () => Scaffold.of(context).openDrawer(),
+                  ),
+                )
+              : null,
+          title: isMobile(context)
+              ? CompositedTransformTarget(
+                  link: _layerLink,
+                  child: searchField(
+                    controller: _searchController,
+                    focusNode: _searchFocusNode,
+                    onChanged: _onSearchChanged,
+                    onTap: () {
+                      if (_searchController.text.isNotEmpty) {
+                        _showOverlay();
+                      }
+                    },
+                    isSearching: _isSearching,
+                    showClearButton: _searchController.text.isNotEmpty,
+                    onClear: () {
+                      _searchController.clear();
+                      setState(() {
+                        _searchResults = [];
+                        _searchErrorMessage = '';
+                      });
+                      _removeOverlay();
+                    },
+                  ),
+                )
+              : Row(
+                  children: [
+                    Text(
+                      "Shop Name",
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 18,
+                      ),
+                    ),
+                    const Spacer(),
+                    SizedBox(
+                      width: 350,
+                      child: CompositedTransformTarget(
+                        link: _layerLink,
+                        child: searchField(
+                          controller: _searchController,
+                          focusNode: _searchFocusNode,
+                          onChanged: _onSearchChanged,
+                          onTap: () {
+                            if (_searchController.text.isNotEmpty) {
+                              _showOverlay();
+                            }
+                          },
+                          isSearching: _isSearching,
+                          showClearButton: _searchController.text.isNotEmpty,
+                          onClear: () {
+                            _searchController.clear();
+                            setState(() {
+                              _searchResults = [];
+                              _searchErrorMessage = '';
+                            });
+                            _removeOverlay();
+                          },
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                  ],
+                ),
+          actions: [
+            _appBarIcon(
+              onTap: () => _changePage(2),
+              asset: "assets/favorite.svg",
+            ),
+            _cartIconWithBadge(),
+            const SizedBox(width: 8),
+          ],
+        ),
+        body: Row(
+          children: [
+            if (!isMobile(context)) SizedBox(width: 250, child: _drawerItems()),
+            Expanded(
+              child: IndexedStack(
+                index: selectedIndex.clamp(0, pages.length - 1),
+                children: pages,
+              ),
+            ),
           ],
         ),
       ),

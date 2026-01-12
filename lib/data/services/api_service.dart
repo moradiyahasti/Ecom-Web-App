@@ -568,26 +568,43 @@ class ApiService {
       throw 'Could not launch UPI';
     }
   }
+
   // GET SINGLE PRODUCT WITH USER ID FOR WISHLIST
-static Future<Product> getProductDetails({
-  required int productId,
-  int? userId,
-}) async {
-  final url = userId != null
-      ? Uri.parse("$baseUrl/api/products/$productId?user_id=$userId")
-      : Uri.parse("$baseUrl/api/products/$productId");
+  static Future<Product> getProductDetails({
+    required int productId,
+    int? userId,
+  }) async {
+    final url = userId != null
+        ? Uri.parse("$baseUrl/api/products/$productId?user_id=$userId")
+        : Uri.parse("$baseUrl/api/products/$productId");
 
-  log("➡️ GET PRODUCT DETAILS URL: $url");
+    log("➡️ GET PRODUCT DETAILS URL: $url");
 
-  final res = await http.get(url);
+    final res = await http.get(url);
 
-  log("⬅️ STATUS: ${res.statusCode}");
-  log("⬅️ BODY: ${res.body}");
+    log("⬅️ STATUS: ${res.statusCode}");
+    log("⬅️ BODY: ${res.body}");
 
-  if (res.statusCode == 200) {
-    return Product.fromJson(jsonDecode(res.body));
-  } else {
-    throw Exception("Failed to load product details");
+    if (res.statusCode == 200) {
+      return Product.fromJson(jsonDecode(res.body));
+    } else {
+      throw Exception("Failed to load product details");
+    }
   }
-}
+
+  static Future<String> getTransactionStatus(String transactionRef) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/transactions/$transactionRef/status'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['status']; // 'success', 'pending', 'failed'
+      }
+      return 'pending';
+    } catch (e) {
+      return 'pending';
+    }
+  }
 }
