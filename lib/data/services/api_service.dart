@@ -8,13 +8,13 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/product_model.dart';
 
 class ApiService {
-  // static const String baseUrl = "http://192.168.1.25:5000"; // office
-  static const String baseUrl = "http://10.26.237.85:5000"; // home
+  static const String baseUrl = "http://192.168.1.25:5000"; // office
+  // static const String baseUrl = "http://10.26.237.85:5000"; // home
 
   static const headers = {"Content-Type": "application/json"};
 
   // ========================= AUTH =========================
- 
+
   static Future<Map<String, dynamic>> register({
     required String name,
     required String email,
