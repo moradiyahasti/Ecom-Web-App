@@ -1,80 +1,120 @@
-import 'dart:developer';
 import 'package:demo/data/models/product_model.dart';
 import 'package:demo/data/services/api_service.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 class FavoritesProvider with ChangeNotifier {
-  List<Product> favorites = [];
-  bool isLoading = false;
+  final Set<int> _favoriteIds = {};
+  List<Product> _favorites = []; // 🔥 ADD THIS - Actual product list
+  bool _isLoading = false;
 
+  bool get isLoading => _isLoading;
+  Set<int> get favoriteIds => _favoriteIds;
+  List<Product> get favorites => _favorites; // 🔥 ADD THIS GETTER
+
+  /// 🔥 CHECK if product is favorite
+  bool isFavorite(int productId) {
+    return _favoriteIds.contains(productId);
+  }
+
+  /// 🔥 LOAD favorites from API
   Future<void> loadFavorites(int userId) async {
-    isLoading = true;
-    notifyListeners();
-
     try {
-      log("🔄 Loading favorites for user: $userId");
-      favorites = await ApiService.getFavorites(userId);
-      log("✅ Loaded ${favorites.length} favorites");
+      _isLoading = true;
+      notifyListeners();
+
+      // 🔥 API માંથી actual products લો
+      final products = await ApiService.getFavorites(userId);
       
-      // Debug: Print all favorite IDs
-      for (var fav in favorites) {
-        log("❤️ Favorite ID: ${fav.id}, Title: ${fav.title}");
-      }
+      // 🔥 બંને update કરો - IDs અને Products
+      _favoriteIds.clear();
+      _favoriteIds.addAll(products.map((p) => p.id));
+      
+      _favorites = products; // 🔥 Products પણ store કરો
+
+      _isLoading = false;
+      notifyListeners();
     } catch (e) {
-      log("❌ Error loading favorites: $e");
-      favorites = [];
+      debugPrint("❌ Error loading favorites: $e");
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// 🔥 TOGGLE favorite - accepts BOTH Product object AND productId
+  /// આ function બે રીતે call કરી શકાય:
+  /// 1. toggleFavorite(1, product) - જ્યારે Product object available હોય
+  /// 2. toggleFavorite(1, null, productId: 123) - જ્યારે માત્ર productId હોય
+  Future<void> toggleFavorite(
+    int userId,
+    Product? product, {
+    int? productId,
+  }) async {
+    // 🔥 Determine the actual productId
+    final id = product?.id ?? productId;
+    
+    if (id == null) {
+      debugPrint("❌ Error: No productId provided");
+      return;
     }
 
-    isLoading = false;
-    notifyListeners();
-  }
-
-  bool isFavorite(int productId) {
-    final result = favorites.any((p) => p.id == productId);
-    log("🔍 Checking isFavorite for $productId: $result");
-    return result;
-  }
-
-  Future<void> toggleFavorite(int userId, Product product) async {
     try {
-      log("🔄 Toggling favorite for product ID: ${product.id}");
-      
-      final isFav = await ApiService.toggleFavorite(
+      // 🔥 OPTIMISTIC UPDATE - પહેલા UI update કરો
+      if (_favoriteIds.contains(id)) {
+        _favoriteIds.remove(id);
+        // 🔥 Product list માંથી પણ remove કરો
+        _favorites.removeWhere((p) => p.id == id);
+      } else {
+        _favoriteIds.add(id);
+        // 🔥 જો Product object available છે તો list માં add કરો
+        if (product != null && !_favorites.any((p) => p.id == product.id)) {
+          _favorites.add(product);
+        }
+      }
+      notifyListeners();
+
+      // 🔥 API call
+      final isFavorite = await ApiService.toggleFavorite(
         userId: userId,
-        productId: product.id,
+        productId: id,
       );
 
-      log("📡 API Response - isFavorite: $isFav");
-
-      if (isFav) {
-        // Check if already exists to avoid duplicates
-        if (!favorites.any((p) => p.id == product.id)) {
-          favorites.add(product);
-          log("❤️ Added to favorites: ${product.id}");
-        } else {
-          log("⚠️ Product ${product.id} already in favorites");
+      // 🔥 VERIFY - API response સાથે sync કરો
+      if (isFavorite) {
+        _favoriteIds.add(id);
+        // જો product object છે અને list માં નથી, તો add કરો
+        if (product != null && !_favorites.any((p) => p.id == product.id)) {
+          _favorites.add(product);
         }
       } else {
-        favorites.removeWhere((p) => p.id == product.id);
-        log("💔 Removed from favorites: ${product.id}");
+        _favoriteIds.remove(id);
+        _favorites.removeWhere((p) => p.id == id);
       }
-
-      log("📋 Current favorites count: ${favorites.length}");
-      log("📋 Current favorite IDs: ${favorites.map((p) => p.id).toList()}");
 
       notifyListeners();
     } catch (e) {
-      log("❌ Error toggling favorite: $e");
+      debugPrint("❌ Error toggling favorite: $e");
+      
+      // 🔥 ROLLBACK - error થયો તો પાછું revert કરો
+      if (_favoriteIds.contains(id)) {
+        _favoriteIds.remove(id);
+        _favorites.removeWhere((p) => p.id == id);
+      } else {
+        _favoriteIds.add(id);
+        if (product != null && !_favorites.any((p) => p.id == product.id)) {
+          _favorites.add(product);
+        }
+      }
+      notifyListeners();
     }
   }
 
-  // Optional: Clear favorites (for logout)
+  /// 🔥 CLEAR all favorites (optional - જો reset button હોય)
   void clearFavorites() {
-    favorites.clear();
+    _favoriteIds.clear();
+    _favorites.clear();
     notifyListeners();
   }
+
+  /// 🔥 GET favorite count (helper method)
+  int get favoritesCount => _favorites.length;
 }
-
-
-
-

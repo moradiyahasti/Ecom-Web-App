@@ -1,4 +1,3 @@
-
 import 'package:demo/data/models/product_model.dart';
 import 'package:demo/presentation/screens/product/product_details_screen.dart';
 import 'package:demo/data/providers/cart_provider.dart';
@@ -10,7 +9,7 @@ import 'package:provider/provider.dart';
 class ProductCard extends StatelessWidget {
   final Product product;
 
-  const ProductCard({required this.product, Key? key}) : super(key: key);
+  const ProductCard({required this.product, super.key});
 
   bool _isMobile(BuildContext context) {
     return MediaQuery.of(context).size.width < 600;
@@ -22,17 +21,27 @@ class ProductCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
       onTap: () {
         // ignore: avoid_print
-        print("Title: ${product.title}");
-        print("Image: ${product.image}");
-        print("Old Price: ${product.oldPrice}");
-        print("Review: ${product.reviews}");
-        print("Price: ${product.price}");
+        // print("Title: ${product.title}");
+        // print("Image: ${product.image}");
+        // print("Old Price: ${product.oldPrice}");
+        // print("Review: ${product.reviews}");
+        // print("Price: ${product.price}");
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => NailProductDetailsExactUI(
+            builder: (_) => EnhancedNailProductDetails(
+              productId: product.id, // 🔥 IMPORTANT - આ add કરવું જરૂરી છે
+
               title: product.title,
-              iamge: product.image,
+              mainImage: product.image,
+              productImages: product.productImages.isNotEmpty
+                  ? product.productImages
+                  : [
+                      product.image,
+                      product.image,
+                      product.image,
+                      product.image,
+                    ],
               oldPrice: product.oldPrice,
               review: product.reviews,
               price: product.price,

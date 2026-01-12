@@ -336,6 +336,7 @@ class ApiService {
   }) async {
     try {
       // final token = await TokenService.getToken();
+      // ignore: unnecessary_null_comparison
       if (token == null) return false;
 
       final url = Uri.parse("$baseUrl/auth/change-password");
@@ -567,4 +568,26 @@ class ApiService {
       throw 'Could not launch UPI';
     }
   }
+  // GET SINGLE PRODUCT WITH USER ID FOR WISHLIST
+static Future<Product> getProductDetails({
+  required int productId,
+  int? userId,
+}) async {
+  final url = userId != null
+      ? Uri.parse("$baseUrl/api/products/$productId?user_id=$userId")
+      : Uri.parse("$baseUrl/api/products/$productId");
+
+  log("➡️ GET PRODUCT DETAILS URL: $url");
+
+  final res = await http.get(url);
+
+  log("⬅️ STATUS: ${res.statusCode}");
+  log("⬅️ BODY: ${res.body}");
+
+  if (res.statusCode == 200) {
+    return Product.fromJson(jsonDecode(res.body));
+  } else {
+    throw Exception("Failed to load product details");
+  }
+}
 }

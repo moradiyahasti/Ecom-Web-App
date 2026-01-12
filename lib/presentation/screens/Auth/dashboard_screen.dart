@@ -1,9 +1,11 @@
-
-
+import 'dart:async';
+import 'package:demo/data/models/product_model.dart';
+import 'package:demo/data/services/api_service.dart';
 import 'package:demo/presentation/screens/Auth/auth.dart';
 import 'package:demo/presentation/screens/cart/add_to_cart.dart';
 import 'package:demo/presentation/screens/favorite/favorite.dart';
 import 'package:demo/presentation/screens/home/home_screen.dart';
+import 'package:demo/presentation/screens/product/product_details_screen.dart';
 import 'package:demo/presentation/screens/Settings/setting_screen.dart';
 import 'package:demo/data/providers/cart_provider.dart';
 import 'package:demo/data/services/token_service.dart';
@@ -14,16 +16,27 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 class MainLayout extends StatefulWidget {
-  const MainLayout({super.key});
+  final int initialIndex;
+
+  const MainLayout({super.key, this.initialIndex = 0});
 
   @override
   State<MainLayout> createState() => _MainLayoutState();
 }
 
 class _MainLayoutState extends State<MainLayout> {
-  int selectedIndex = 0;
+  late int selectedIndex;
   String name = "";
   String email = "";
+
+  // 🔍 SEARCH VARIABLES (for desktop)
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  List<Product> _searchResults = [];
+  bool _isSearching = false;
+  bool _showSearchResults = false;
+  Timer? _searchDebounce;
+  String _searchErrorMessage = '';
 
   void loadUser() async {
     final n = await TokenService.getName();
@@ -35,44 +48,102 @@ class _MainLayoutState extends State<MainLayout> {
     });
   }
 
-
   late final List<Widget> pages;
 
   @override
   void initState() {
     super.initState();
 
+    selectedIndex = widget.initialIndex;
+
     pages = [
       const HomeScreen(),
-      const CartScreen(), // ✅ કોઈ key નથી જોઈતું
+      const CartScreen(),
       const FavoriteScreen(),
       const SettingsScreen(),
     ];
     loadUser();
+
+    if (selectedIndex == 1) {
+      Future.microtask(() {
+        if (mounted) {
+          context.read<CartProvider>().loadCart(1);
+        }
+      });
+    }
   }
 
-  /// ✅ UPDATED PAGE CHANGE
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
   void _changePage(int index) {
     if (index < 0 || index >= pages.length) return;
 
     setState(() => selectedIndex = index);
 
-    // 🔥 Cart tab ખુલ્યે ત્યારે fresh data load કરો
     if (index == 1) {
       context.read<CartProvider>().loadCart(1);
     }
+  }
+
+  // 🔍 SEARCH FUNCTION
+  Future<void> _performSearch(String query) async {
+    if (query.trim().isEmpty) {
+      setState(() {
+        _searchResults = [];
+        _showSearchResults = false;
+        _searchErrorMessage = '';
+      });
+      return;
+    }
+
+    setState(() {
+      _isSearching = true;
+      _searchErrorMessage = '';
+    });
+
+    try {
+      final results = await ApiService.searchProducts(query);
+
+      setState(() {
+        _searchResults = results;
+        _isSearching = false;
+        _showSearchResults = true;
+
+        if (results.isEmpty) {
+          _searchErrorMessage = 'No products found for "$query"';
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _searchResults = [];
+        _isSearching = false;
+        _searchErrorMessage = 'Error searching products';
+      });
+    }
+  }
+
+  void _onSearchChanged(String query) {
+    if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
+
+    _searchDebounce = Timer(const Duration(milliseconds: 500), () {
+      _performSearch(query);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: isMobile(context) ? Drawer(child: _drawerItems()) : null,
-
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-
         leading: isMobile(context)
             ? Builder(
                 builder: (context) => IconButton(
@@ -81,7 +152,6 @@ class _MainLayoutState extends State<MainLayout> {
                 ),
               )
             : null,
-
         title: isMobile(context)
             ? searchField()
             : Row(
@@ -94,33 +164,178 @@ class _MainLayoutState extends State<MainLayout> {
                     ),
                   ),
                   const Spacer(),
-                  SizedBox(width: 350, child: searchField()),
+                  // 🔍 DESKTOP SEARCH with RESULTS
+                  SizedBox(
+                    width: 350,
+                    child: Column(
+                      children: [
+                        searchField(
+                          controller: _searchController,
+                          focusNode: _searchFocusNode,
+                          onChanged: _onSearchChanged,
+                          onTap: () {
+                            if (_searchController.text.isNotEmpty) {
+                              setState(() => _showSearchResults = true);
+                            }
+                          },
+                          isSearching: _isSearching,
+                          showClearButton: _searchController.text.isNotEmpty,
+                          onClear: () {
+                            _searchController.clear();
+                            setState(() {
+                              _searchResults = [];
+                              _showSearchResults = false;
+                              _searchErrorMessage = '';
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
                   const Spacer(),
                 ],
               ),
-
         actions: [
           _appBarIcon(
             onTap: () => _changePage(2),
             asset: "assets/favorite.svg",
           ),
-
-          // 🔥 Cart Icon with Badge
           _cartIconWithBadge(),
-
           const SizedBox(width: 8),
         ],
       ),
-
-      body: Row(
+      body: Stack(
         children: [
-          if (!isMobile(context)) SizedBox(width: 250, child: _drawerItems()),
+          Row(
+            children: [
+              if (!isMobile(context))
+                SizedBox(width: 250, child: _drawerItems()),
+              Expanded(
+                child: IndexedStack(
+                  index: selectedIndex.clamp(0, pages.length - 1),
+                  children: pages,
+                ),
+              ),
+            ],
+          ),
 
-          /// ✅ INDEXEDSTACK
-          Expanded(
-            child: IndexedStack(
-              index: selectedIndex.clamp(0, pages.length - 1),
-              children: pages,
+          // 🔍 DESKTOP SEARCH RESULTS OVERLAY
+          if (_showSearchResults && !isMobile(context))
+            _buildSearchResultsOverlay(),
+        ],
+      ),
+    );
+  }
+
+  // 🔍 SEARCH RESULTS OVERLAY (Desktop)
+  Widget _buildSearchResultsOverlay() {
+    return GestureDetector(
+      onTap: () {
+        setState(() => _showSearchResults = false);
+        _searchFocusNode.unfocus();
+      },
+      child: Container(
+        color: Colors.black.withOpacity(0.3),
+        child: Center(
+          child: Container(
+            width: 500,
+            margin: const EdgeInsets.only(top: 70),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            constraints: const BoxConstraints(maxHeight: 500),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // HEADER
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.deepPurple.shade50,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(12),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _searchErrorMessage.isEmpty
+                            ? 'Found ${_searchResults.length} products'
+                            : 'Search Results',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.deepPurple,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        color: Colors.deepPurple,
+                        onPressed: () {
+                          setState(() => _showSearchResults = false);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+
+                // RESULTS
+                Flexible(
+                  child: _searchErrorMessage.isNotEmpty
+                      ? _buildNoResults()
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          padding: const EdgeInsets.all(12),
+                          itemCount: _searchResults.length,
+                          itemBuilder: (context, index) {
+                            return _buildSearchResultItem(
+                              _searchResults[index],
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ❌ NO RESULTS
+  Widget _buildNoResults() {
+    return Padding(
+      padding: const EdgeInsets.all(40),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.search_off, size: 60, color: Colors.grey.shade400),
+          const SizedBox(height: 16),
+          Text(
+            _searchErrorMessage,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Try searching with different keywords',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: Colors.grey.shade500,
             ),
           ),
         ],
@@ -128,7 +343,101 @@ class _MainLayoutState extends State<MainLayout> {
     );
   }
 
-  // 🛒 CART ICON WITH BADGE
+  // 📦 SEARCH RESULT ITEM
+  Widget _buildSearchResultItem(Product product) {
+    return InkWell(
+      onTap: () {
+        setState(() => _showSearchResults = false);
+        _searchFocusNode.unfocus();
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => EnhancedNailProductDetails(
+              productId: product.id,
+              title: product.title,
+              mainImage: product.image,
+              productImages: product.productImages.isNotEmpty
+                  ? product.productImages
+                  : [product.image],
+              oldPrice: product.oldPrice,
+              review: product.reviews,
+              price: product.price,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.network(
+                product.image,
+                width: 60,
+                height: 60,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  width: 60,
+                  height: 60,
+                  color: Colors.grey.shade300,
+                  child: const Icon(Icons.image, size: 30),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        '₹${product.price}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.deepPurple,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '₹${product.oldPrice}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: Colors.grey,
+                          decoration: TextDecoration.lineThrough,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _cartIconWithBadge() {
     return Consumer<CartProvider>(
       builder: (context, cartProvider, child) {
@@ -141,8 +450,6 @@ class _MainLayoutState extends State<MainLayout> {
               onTap: () => _changePage(1),
               asset: "assets/add-to-cart (1).svg",
             ),
-
-            // 🔥 Badge
             if (itemCount > 0)
               Positioned(
                 right: 6,
@@ -176,25 +483,20 @@ class _MainLayoutState extends State<MainLayout> {
     );
   }
 
-  // ================= DRAWER =================
-
   Widget _drawerItems() {
     return Container(
       color: const Color(0xffF8F9FF),
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          // ===== HEADER =====
           InkWell(
-              onTap: () async {
-            // OPTIONAL: drawer header click → open profile
-            await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SettingsScreen()),
-            );
-            // drawer open પછી name/email refresh
-            loadUser();
-          },
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              );
+              loadUser();
+            },
             child: Container(
               height: 85,
               padding: const EdgeInsets.all(20),
@@ -221,21 +523,17 @@ class _MainLayoutState extends State<MainLayout> {
               ),
             ),
           ),
-
           const SizedBox(height: 12),
-
           _menuItem("Home", Icons.home_rounded, 0),
           _menuItemWithBadge("Cart", Icons.shopping_cart_rounded, 1),
           _menuItem("Favorites", Icons.favorite_rounded, 2),
-          _menuItem("Settings", Icons.settings_rounded, 3,),
-
+          _menuItem("Settings", Icons.settings_rounded, 3),
           _menuItem("Logout", Icons.logout_rounded, -1),
         ],
       ),
     );
   }
 
-  // 🛒 MENU ITEM WITH CART BADGE
   Widget _menuItemWithBadge(String title, IconData icon, int index) {
     bool selected = selectedIndex == index;
 
@@ -275,8 +573,6 @@ class _MainLayoutState extends State<MainLayout> {
                       size: 22,
                       color: selected ? Colors.white : Colors.deepPurple,
                     ),
-
-                    // 🔥 Badge
                     if (itemCount > 0)
                       Positioned(
                         right: -6,
@@ -320,8 +616,6 @@ class _MainLayoutState extends State<MainLayout> {
                     color: selected ? Colors.white : Colors.deepPurple,
                   ),
                 ),
-
-                // 🔥 Badge (alternative - right side)
                 if (itemCount > 0) ...[
                   const Spacer(),
                   Container(
@@ -357,7 +651,6 @@ class _MainLayoutState extends State<MainLayout> {
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: () async {
-        // 🔥 LOGOUT
         if (index == -1) {
           await TokenService.clearAll();
           if (!mounted) return;
@@ -409,10 +702,8 @@ class _MainLayoutState extends State<MainLayout> {
           return;
         }
 
-        // ✅ NORMAL MENU NAVIGATION
         _changePage(index);
 
-        // 📱 Mobile ma drawer close
         if (isMobile(context)) {
           Navigator.pop(context);
         }
@@ -452,8 +743,6 @@ class _MainLayoutState extends State<MainLayout> {
       ),
     );
   }
-
-  // ================= APP BAR ICON =================
 
   Widget _appBarIcon({required VoidCallback onTap, required String asset}) {
     return IconButton(

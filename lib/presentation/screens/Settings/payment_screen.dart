@@ -71,8 +71,8 @@ class _PaymentScreenState extends State<PaymentScreen>
 
     _slideAnimation =
         Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
-      CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
-    );
+          CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
+        );
 
     _fadeAnimation = Tween<double>(
       begin: 0.0,
@@ -300,14 +300,14 @@ class _PaymentScreenState extends State<PaymentScreen>
     try {
       if (kIsWeb) {
         final uri = Uri.parse(deepLink);
-        
+
         // Record time when payment was initiated
         _paymentInitiatedTime = DateTime.now();
-        
+
         // Try to launch the deep link
         try {
           await launchUrl(uri, mode: LaunchMode.externalApplication);
-          
+
           // Show instruction dialog after attempting to open app
           if (mounted) {
             await Future.delayed(const Duration(milliseconds: 1000));
@@ -318,7 +318,9 @@ class _PaymentScreenState extends State<PaymentScreen>
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('App not installed. Please scan QR code instead.'),
+                content: Text(
+                  'App not installed. Please scan QR code instead.',
+                ),
                 backgroundColor: Colors.orange,
                 duration: Duration(seconds: 3),
               ),
@@ -586,7 +588,11 @@ class _PaymentScreenState extends State<PaymentScreen>
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.info, color: Colors.blue, size: 20),
+                            const Icon(
+                              Icons.info,
+                              color: Colors.blue,
+                              size: 20,
+                            ),
                             const SizedBox(width: 8),
                             Text(
                               'How to Pay:',
@@ -612,8 +618,11 @@ class _PaymentScreenState extends State<PaymentScreen>
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.qr_code_scanner, 
-                                color: Colors.orange[700], size: 20),
+                              Icon(
+                                Icons.qr_code_scanner,
+                                color: Colors.orange[700],
+                                size: 20,
+                              ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
@@ -704,25 +713,15 @@ class _PaymentScreenState extends State<PaymentScreen>
         decoration: BoxDecoration(
           color: color.withOpacity(0.1),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: color.withOpacity(0.3),
-            width: 2,
-          ),
+          border: Border.all(color: color.withOpacity(0.3), width: 2),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                size: 32,
-                color: Colors.white,
-              ),
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              child: Icon(icon, size: 32, color: Colors.white),
             ),
             const SizedBox(height: 12),
             Text(
@@ -737,10 +736,7 @@ class _PaymentScreenState extends State<PaymentScreen>
             const SizedBox(height: 4),
             Text(
               'Tap to Pay',
-              style: GoogleFonts.poppins(
-                fontSize: 11,
-                color: Colors.grey,
-              ),
+              style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey),
             ),
           ],
         ),
@@ -801,8 +797,11 @@ class _PaymentScreenState extends State<PaymentScreen>
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.warning_amber_rounded, 
-                      color: Colors.orange[700], size: 20),
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      color: Colors.orange[700],
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -818,7 +817,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                 ),
               ),
               const SizedBox(height: 24),
-              
+
               // Yes, I Paid Button
               SizedBox(
                 width: double.infinity,
@@ -826,14 +825,16 @@ class _PaymentScreenState extends State<PaymentScreen>
                   onPressed: () {
                     // Check if minimum time has passed (at least 5 seconds)
                     if (_paymentInitiatedTime != null) {
-                      final timeDiff = DateTime.now().difference(_paymentInitiatedTime!);
+                      final timeDiff = DateTime.now().difference(
+                        _paymentInitiatedTime!,
+                      );
                       if (timeDiff.inSeconds < 5) {
                         Navigator.of(context).pop();
                         _showQuickConfirmationWarning();
                         return;
                       }
                     }
-                    
+
                     Navigator.of(context).pop();
                     _showFinalConfirmationDialog();
                   },
@@ -855,9 +856,9 @@ class _PaymentScreenState extends State<PaymentScreen>
                   ),
                 ),
               ),
-              
+
               const SizedBox(height: 12),
-              
+
               // No, Cancel Button
               SizedBox(
                 width: double.infinity,
@@ -872,7 +873,9 @@ class _PaymentScreenState extends State<PaymentScreen>
                     );
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Payment cancelled. Please try again when ready.'),
+                        content: Text(
+                          'Payment cancelled. Please try again when ready.',
+                        ),
                         backgroundColor: Colors.orange,
                         duration: Duration(seconds: 3),
                       ),
@@ -896,16 +899,18 @@ class _PaymentScreenState extends State<PaymentScreen>
                   ),
                 ),
               ),
-              
+
               const SizedBox(height: 16),
-              
+
               // Try Different App
               TextButton.icon(
                 onPressed: () {
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: const Text('Choose a different UPI app or scan QR code'),
+                      content: const Text(
+                        'Choose a different UPI app or scan QR code',
+                      ),
                       backgroundColor: Colors.deepPurple,
                       action: SnackBarAction(
                         label: 'OK',
@@ -918,9 +923,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                 icon: const Icon(Icons.refresh, size: 18),
                 label: Text(
                   'Try Different App',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                  ),
+                  style: GoogleFonts.poppins(fontSize: 14),
                 ),
               ),
             ],
@@ -1062,7 +1065,10 @@ class _PaymentScreenState extends State<PaymentScreen>
               ),
               const SizedBox(height: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.green.shade50,
                   borderRadius: BorderRadius.circular(12),
@@ -1795,10 +1801,12 @@ class _PaymentScreenState extends State<PaymentScreen>
                       onPressed: () async {
                         try {
                           await _confirmPaymentToBackend(transactionRef);
+                          // ignore: use_build_context_synchronously
                           Navigator.of(context).pop();
                           _confettiController.play();
                           _showSuccessDialog();
                         } catch (e) {
+                          // ignore: use_build_context_synchronously
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text(

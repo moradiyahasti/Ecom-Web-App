@@ -15,8 +15,17 @@ void main() async {
     MultiProvider(
       // providers: [ChangeNotifierProvider(create: (_) => FavoritesProvider())],
       providers: [
-        ChangeNotifierProvider(create: (_) => FavoritesProvider()),
-        ChangeNotifierProvider(create: (_) => CartProvider()), // 🔥 Add this
+        // ChangeNotifierProvider(create: (_) => FavoritesProvider()),
+        // ChangeNotifierProvider(create: (_) => CartProvider()), // 🔥 Add this
+
+         ChangeNotifierProvider(
+          create: (_) => CartProvider()..loadCart(1), // userId = 1
+        ),
+        
+        // 🔥 Favorites Provider
+        ChangeNotifierProvider(
+          create: (_) => FavoritesProvider()..loadFavorites(1), // userId = 1
+        ),
       ],
       child: const MyApp(),
     ),

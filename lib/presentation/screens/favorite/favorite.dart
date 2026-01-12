@@ -1,3 +1,5 @@
+import 'package:demo/data/models/product_model.dart';
+import 'package:demo/data/providers/cart_provider.dart';
 import 'package:demo/data/services/provider.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -44,6 +46,7 @@ class _FavoriteScreenState extends State<FavoriteScreen>
 
     _headerController!.forward();
 
+    // 🔥 LOAD FAVORITES on init
     Future.microtask(() {
       if (mounted) {
         context.read<FavoritesProvider>().loadFavorites(1);
@@ -88,6 +91,7 @@ class _FavoriteScreenState extends State<FavoriteScreen>
 
   @override
   Widget build(BuildContext context) {
+    // 🔥 WATCH FAVORITES PROVIDER
     final favProvider = context.watch<FavoritesProvider>();
 
     return Scaffold(
@@ -296,25 +300,28 @@ class _FavoriteScreenState extends State<FavoriteScreen>
               child: Icon(icon, color: Colors.white, size: 18),
             ),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  style: GoogleFonts.poppins(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    value,
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                Text(
-                  label,
-                  style: GoogleFonts.poppins(
-                    color: Colors.white.withOpacity(0.8),
-                    fontSize: 12,
+                  Text(
+                    label,
+                    style: GoogleFonts.poppins(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 12,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
@@ -332,29 +339,32 @@ class _FavoriteScreenState extends State<FavoriteScreen>
 
   Widget _buildLoading() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.deepPurple.shade50,
-              shape: BoxShape.circle,
+      child: Padding(
+        padding: const EdgeInsets.all(80),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.deepPurple.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: const CircularProgressIndicator(
+                color: Colors.deepPurple,
+                strokeWidth: 3,
+              ),
             ),
-            child: const CircularProgressIndicator(
-              color: Colors.deepPurple,
-              strokeWidth: 3,
+            const SizedBox(height: 20),
+            Text(
+              "Loading your favorites...",
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            "Loading your favorites...",
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              color: Colors.grey.shade600,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -416,45 +426,51 @@ class _FavoriteScreenState extends State<FavoriteScreen>
                   ),
                 ),
                 const SizedBox(height: 32),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 16,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.deepPurple.shade400,
-                        Colors.deepPurple.shade600,
+                InkWell(
+                  onTap: () {
+                    // Navigate to home/products
+                    Navigator.pop(context);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.deepPurple.shade400,
+                          Colors.deepPurple.shade600,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(30),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.deepPurple.withOpacity(0.4),
+                          blurRadius: 15,
+                          offset: const Offset(0, 8),
+                        ),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(30),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.deepPurple.withOpacity(0.4),
-                        blurRadius: 15,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.shopping_bag,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        "Browse Products",
-                        style: GoogleFonts.poppins(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.shopping_bag,
                           color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
+                          size: 20,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 8),
+                        Text(
+                          "Browse Products",
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -479,32 +495,44 @@ class _FavoriteScreenState extends State<FavoriteScreen>
           mainAxisSpacing: 16,
         ),
         itemBuilder: (context, index) {
+          final product = favProvider.favorites[index]; // ✅ એક વખત લો
+
           return _AnimatedProductCard(
-            product: favProvider.favorites[index],
+            product: product,
             index: index,
-            // onRemove: () {
-            //   // _showCustomSnackBar(
-            //   //   title: "Removed!",
-            //   //   message: "Item removed from favorites",
-            //   //   isSuccess: false,
-            //   // );
-            //   // favProvider.removeFavorite(favProvider.favorites[index].id);
-            // },
-            onRemove: () {
-              context.read<FavoritesProvider>().toggleFavorite(
+            // 🔥 REMOVE FAVORITE - Provider સાથે
+            onRemove: () async {
+              await context.read<FavoritesProvider>().toggleFavorite(
                 1,
-                favProvider.favorites[index],
+                product,
               );
+
+              if (mounted) {
+                _showCustomSnackBar(
+                  title: "Removed!",
+                  message: "${product.title} removed from favorites",
+                  isSuccess: false,
+                );
+              }
             },
-            onAddToCart: (product) {
-              _showCustomSnackBar(
-                title: "Added to Cart!",
-                message: product.title,
-                isSuccess: true,
-                onAction: () {
-                  // Navigate to cart
-                },
+            // 🔥 ADD TO CART - Provider સાથે
+            onAddToCart: (product) async {
+              await context.read<CartProvider>().addToCart(
+                userId: 1,
+                productId: product.id,
+                quantity: 1,
               );
+
+              if (mounted) {
+                _showCustomSnackBar(
+                  title: "Added to Cart!",
+                  message: product.title,
+                  isSuccess: true,
+                  onAction: () {
+                    // Navigate to cart if needed
+                  },
+                );
+              }
             },
           );
         },
@@ -669,10 +697,10 @@ class _CustomSnackBarState extends State<_CustomSnackBar>
 
 // 🎨 Animated Product Card Widget
 class _AnimatedProductCard extends StatefulWidget {
-  final dynamic product;
+  final Product product; // 🔥 Proper type
   final int index;
   final VoidCallback onRemove;
-  final Function(dynamic) onAddToCart;
+  final Function(Product) onAddToCart; // 🔥 Proper type
 
   const _AnimatedProductCard({
     required this.product,
@@ -758,9 +786,7 @@ class _AnimatedProductCardState extends State<_AnimatedProductCard>
                             top: Radius.circular(15),
                           ),
                           child: Image.network(
-                            widget.product.image?.isNotEmpty == true
-                                ? widget.product.image!
-                                : " ", // force errorBuilder if empty
+                            widget.product.image,
                             width: double.infinity,
                             height: double.infinity,
                             fit: BoxFit.cover,
@@ -834,7 +860,6 @@ class _AnimatedProductCardState extends State<_AnimatedProductCard>
                               ),
                             ],
                           ),
-                          // SizedBox(height: 5)
                         ],
                       ),
                     ),
