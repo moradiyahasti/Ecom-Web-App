@@ -290,6 +290,9 @@ class _PaymentScreenState extends State<PaymentScreen>
     }
   }
 
+  // Track when UPI app was opened
+  DateTime? _paymentInitiatedTime;
+
   // ✅ Open UPI App via Deep Link (Web)
   void _openUpiApp(String deepLink) async {
     setState(() => _isProcessing = true);
@@ -298,13 +301,16 @@ class _PaymentScreenState extends State<PaymentScreen>
       if (kIsWeb) {
         final uri = Uri.parse(deepLink);
         
+        // Record time when payment was initiated
+        _paymentInitiatedTime = DateTime.now();
+        
         // Try to launch the deep link
         try {
           await launchUrl(uri, mode: LaunchMode.externalApplication);
           
           // Show instruction dialog after attempting to open app
           if (mounted) {
-            await Future.delayed(const Duration(milliseconds: 500));
+            await Future.delayed(const Duration(milliseconds: 1000));
             _showWebPaymentInstructionDialog();
           }
         } catch (e) {
@@ -800,9 +806,9 @@ class _PaymentScreenState extends State<PaymentScreen>
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Only click "Yes" if payment is done',
+                        'False confirmation may result in order cancellation',
                         style: GoogleFonts.poppins(
-                          fontSize: 12,
+                          fontSize: 11,
                           color: Colors.orange[900],
                           fontWeight: FontWeight.w500,
                         ),
@@ -818,8 +824,18 @@ class _PaymentScreenState extends State<PaymentScreen>
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () {
+                    // Check if minimum time has passed (at least 5 seconds)
+                    if (_paymentInitiatedTime != null) {
+                      final timeDiff = DateTime.now().difference(_paymentInitiatedTime!);
+                      if (timeDiff.inSeconds < 5) {
+                        Navigator.of(context).pop();
+                        _showQuickConfirmationWarning();
+                        return;
+                      }
+                    }
+                    
                     Navigator.of(context).pop();
-                    _verifyWebPayment();
+                    _showFinalConfirmationDialog();
                   },
                   icon: const Icon(Icons.check_circle, size: 20),
                   label: Text(
@@ -906,6 +922,223 @@ class _PaymentScreenState extends State<PaymentScreen>
                     fontSize: 14,
                   ),
                 ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ⚠️ Warning for quick confirmation (suspiciously fast)
+  void _showQuickConfirmationWarning() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.error_outline,
+                  size: 48,
+                  color: Colors.red,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Too Quick! ⚠️',
+                style: GoogleFonts.poppins(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.red.shade700,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Payment confirmation seems too fast. Please ensure you have actually completed the payment in UPI app.',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: Colors.grey[700],
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'False confirmation will result in automatic order cancellation and may affect your account.',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.red[900],
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'I Understand',
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ✅ Final confirmation before processing
+  void _showFinalConfirmationDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.verified_user,
+                  size: 48,
+                  color: Colors.amber,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Final Confirmation',
+                style: GoogleFonts.poppins(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Are you absolutely sure you have completed the payment of',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: Colors.grey[700],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green.shade200, width: 2),
+                ),
+                child: Text(
+                  '₹${_amountController.text}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.green.shade700,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'in your UPI app?',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Please complete payment first'),
+                            backgroundColor: Colors.orange,
+                          ),
+                        );
+                      },
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: BorderSide(color: Colors.grey.shade400),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: Text(
+                        'No, Go Back',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _verifyWebPayment();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: Text(
+                        'Yes, Confirm',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
