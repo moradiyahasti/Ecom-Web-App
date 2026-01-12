@@ -2111,78 +2111,51 @@ class _PaymentScreenState extends State<PaymentScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Payment Steps:',
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w600,
-                            color: Colors.blue[900],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        _instructionStep('1', 'Click on UPI app above or scan QR'),
-                        _instructionStep('2', 'Enter amount: ₹${_amountController.text}'),
-                        _instructionStep('3', 'Complete payment in the app'),
-                        _instructionStep('4', 'Click "I Have Paid" button below'),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Payment Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: _isProcessing ? null : _verifyWebPayment,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepPurple,
-                        disabledBackgroundColor: Colors.grey,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: _isProcessing
-                          ? Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  'Verifying...',
-                                  style: GoogleFonts.poppins(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ],
-                            )
-                          : Text(
-                              'I Have Paid',
+                        Row(
+                          children: [
+                            const Icon(Icons.info, color: Colors.blue, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              'How to Pay:',
                               style: GoogleFonts.poppins(
-                                color: Colors.white,
-                                fontSize: 16,
                                 fontWeight: FontWeight.w600,
+                                color: Colors.blue[900],
+                                fontSize: 15,
                               ),
                             ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  Text(
-                    '⚠️ Click only after completing payment',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: Colors.orange,
-                      fontWeight: FontWeight.w500,
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _instructionStep('1', 'Click on your UPI app above'),
+                        _instructionStep('2', 'Complete payment in the app'),
+                        _instructionStep('3', 'Return here and confirm'),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.orange[50],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.orange[200]!),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.qr_code_scanner, 
+                                color: Colors.orange[700], size: 20),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Or scan QR code with any UPI app',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    color: Colors.orange[900],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -2305,7 +2278,7 @@ class _PaymentScreenState extends State<PaymentScreen>
   void _showWebPaymentInstructionDialog() {
     showDialog(
       context: context,
-      barrierDismissible: true,
+      barrierDismissible: false,
       builder: (context) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Padding(
@@ -2313,61 +2286,125 @@ class _PaymentScreenState extends State<PaymentScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.info_outline,
-                size: 48,
-                color: Colors.deepPurple,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Complete Payment',
-                style: GoogleFonts.poppins(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.deepPurple.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.payment,
+                  size: 48,
                   color: Colors.deepPurple,
                 ),
               ),
+              const SizedBox(height: 20),
+              Text(
+                'Did you complete the payment?',
+                style: GoogleFonts.poppins(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 12),
               Text(
-                'Complete the payment in the UPI app that just opened, then click "I Have Paid" below.',
+                'If you completed the payment in UPI app, click "Yes, I Paid".\n\nOtherwise click "No, Cancel".',
                 style: GoogleFonts.poppins(
                   fontSize: 14,
-                  color: Colors.grey[700],
+                  color: Colors.grey[600],
+                  height: 1.5,
                 ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
+              
+              // Yes, I Paid Button
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
+                child: ElevatedButton.icon(
                   onPressed: () {
                     Navigator.of(context).pop();
                     _verifyWebPayment();
                   },
+                  icon: const Icon(Icons.check_circle, size: 20),
+                  label: Text(
+                    'Yes, I Paid',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepPurple,
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: Text(
-                    'I Have Paid',
+                ),
+              ),
+              
+              const SizedBox(height: 12),
+              
+              // No, Cancel Button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Payment cancelled. Please try again when ready.'),
+                        backgroundColor: Colors.orange,
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.cancel, size: 20),
+                  label: Text(
+                    'No, Cancel',
                     style: GoogleFonts.poppins(
-                      color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red, width: 2),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text(
-                  'Cancel',
+              
+              const SizedBox(height: 16),
+              
+              // Try Different App
+              TextButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('Choose a different UPI app or scan QR code'),
+                      backgroundColor: Colors.deepPurple,
+                      action: SnackBarAction(
+                        label: 'OK',
+                        textColor: Colors.white,
+                        onPressed: () {},
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.refresh, size: 18),
+                label: Text(
+                  'Try Different App',
                   style: GoogleFonts.poppins(
-                    color: Colors.grey,
+                    fontSize: 14,
                   ),
                 ),
               ),
