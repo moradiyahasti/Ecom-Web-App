@@ -481,7 +481,7 @@ class _FavoriteScreenState extends State<FavoriteScreen>
     );
   }
 
-  Widget _buildGridView(FavoritesProvider favProvider) {
+  /*  Widget _buildGridView(FavoritesProvider favProvider) {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: GridView.builder(
@@ -533,6 +533,58 @@ class _FavoriteScreenState extends State<FavoriteScreen>
                   },
                 );
               }
+            },
+          );
+        },
+      ),
+    );
+  } */
+
+  Widget _buildGridView(FavoritesProvider favProvider) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          int crossAxisCount = 2;
+
+          if (constraints.maxWidth >= 1200) {
+            crossAxisCount = 4; // Desktop
+          } else if (constraints.maxWidth >= 800) {
+            crossAxisCount = 3; // Tablet / Small desktop
+          } else {
+            crossAxisCount = 2; // Mobile
+          }
+
+          return GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: favProvider.favorites.length,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              childAspectRatio: 0.68,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+            ),
+            itemBuilder: (context, index) {
+              final product = favProvider.favorites[index];
+
+              return _AnimatedProductCard(
+                product: product,
+                index: index,
+                onRemove: () async {
+                  await context.read<FavoritesProvider>().toggleFavorite(
+                    1,
+                    product,
+                  );
+                },
+                onAddToCart: (product) async {
+                  await context.read<CartProvider>().addToCart(
+                    userId: 1,
+                    productId: product.id,
+                    quantity: 1,
+                  );
+                },
+              );
             },
           );
         },

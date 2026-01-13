@@ -9,7 +9,7 @@ import '../models/product_model.dart';
 
 class ApiService {
   static const String baseUrl = "http://192.168.1.25:5000"; // office
-  // static const String baseUrl = "http://10.26.237.85:5000"; // home
+  // static const String baseUrl = "http://192.168.0.106:5000"; // home
 
   static const headers = {"Content-Type": "application/json"};
 
@@ -594,7 +594,6 @@ class ApiService {
 
   static Future<String> getTransactionStatus(String transactionRef) async {
     try {
-      
       final response = await http.get(
         Uri.parse('$baseUrl/transactions/$transactionRef/status'),
       );

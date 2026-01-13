@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -22,12 +21,18 @@ class HelpSupportScreen extends StatelessWidget {
                 const SizedBox(height: 24),
                 _buildSectionTitle('Frequently Asked Questions'),
                 const SizedBox(height: 12),
-                _buildFAQCard('How do I track my order?', 
-                  'Go to Orders section and tap on your order to see tracking details.'),
-                _buildFAQCard('What is your return policy?', 
-                  'You can return items within 30 days of delivery for a full refund.'),
-                _buildFAQCard('How do I change my payment method?', 
-                  'Go to Settings > Payment Methods to add or update payment options.'),
+                _buildFAQCard(
+                  'How do I track my order?',
+                  'Go to Orders section and tap on your order to see tracking details.',
+                ),
+                _buildFAQCard(
+                  'What is your return policy?',
+                  'You can return items within 30 days of delivery for a full refund.',
+                ),
+                _buildFAQCard(
+                  'How do I change my payment method?',
+                  'Go to Settings > Payment Methods to add or update payment options.',
+                ),
                 const SizedBox(height: 24),
                 _buildContactSupport(context),
                 const SizedBox(height: 20),
@@ -93,7 +98,11 @@ class HelpSupportScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: const Icon(Icons.help_outline, color: Colors.white, size: 24),
+                    child: const Icon(
+                      Icons.help_outline,
+                      color: Colors.white,
+                      size: 24,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Text(
@@ -214,10 +223,7 @@ class HelpSupportScreen extends StatelessWidget {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: GoogleFonts.poppins(
-        fontSize: 18,
-        fontWeight: FontWeight.w700,
-      ),
+      style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700),
     );
   }
 
@@ -308,10 +314,7 @@ class HelpSupportScreen extends StatelessWidget {
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                ),
+                BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10),
               ],
             ),
             child: ElevatedButton(

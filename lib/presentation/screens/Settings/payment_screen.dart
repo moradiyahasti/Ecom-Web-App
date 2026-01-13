@@ -52,7 +52,7 @@ class _PaymentScreenState extends State<PaymentScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    
+
     _amountController.text = widget.totalAmount > 0
         ? widget.totalAmount.toStringAsFixed(2)
         : "1.00";
@@ -128,7 +128,7 @@ class _PaymentScreenState extends State<PaymentScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    
+
     if (kIsWeb && state == AppLifecycleState.resumed && _isWaitingForPayment) {
       _hasReturnedFromUpiApp = true;
       _checkPaymentStatus();
@@ -146,8 +146,10 @@ class _PaymentScreenState extends State<PaymentScreen>
 
     try {
       // Call your API to check transaction status
-      final status = await ApiService.getTransactionStatus(_currentTransactionRef!);
-      
+      final status = await ApiService.getTransactionStatus(
+        _currentTransactionRef!,
+      );
+
       if (mounted) {
         setState(() => _isProcessing = false);
 
@@ -353,8 +355,11 @@ class _PaymentScreenState extends State<PaymentScreen>
         _paymentInitiatedTime = DateTime.now();
 
         try {
-          final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-          
+          final launched = await launchUrl(
+            uri,
+            mode: LaunchMode.externalApplication,
+          );
+
           if (launched) {
             // Show a brief loading message
             if (mounted) {
@@ -372,7 +377,9 @@ class _PaymentScreenState extends State<PaymentScreen>
                       ),
                       const SizedBox(width: 12),
                       const Expanded(
-                        child: Text('Opening UPI app... Complete payment and return'),
+                        child: Text(
+                          'Opening UPI app... Complete payment and return',
+                        ),
                       ),
                     ],
                   ),
@@ -390,7 +397,9 @@ class _PaymentScreenState extends State<PaymentScreen>
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('App not installed. Please scan QR code instead.'),
+                content: Text(
+                  'App not installed. Please scan QR code instead.',
+                ),
                 backgroundColor: Colors.orange,
                 duration: Duration(seconds: 3),
               ),
@@ -492,51 +501,52 @@ class _PaymentScreenState extends State<PaymentScreen>
                     ),
                   ),
                   const SizedBox(width: 12),
-                 /*  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        Navigator.of(context).pop();
-                        setState(() => _isProcessing = true);
-                        
-                        try {
-                          await _updateTransactionStatus(
-                            _currentTransactionRef!,
-                            'success',
-                            'User confirmed payment completed',
-                          );
-                          await _confirmPaymentToBackend(_currentTransactionRef!);
+                  /*  Expanded(
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          Navigator.of(context).pop();
+                          setState(() => _isProcessing = true);
                           
-                          if (mounted) {
-                            setState(() => _isProcessing = false);
-                            _confettiController.play();
-                            _showSuccessDialog();
+                          try {
+                            await _updateTransactionStatus(
+                              _currentTransactionRef!,
+                              'success',
+                              'User confirmed payment completed',
+                            );
+                            await _confirmPaymentToBackend(_currentTransactionRef!);
+                            
+                            if (mounted) {
+                              setState(() => _isProcessing = false);
+                              _confettiController.play();
+                              _showSuccessDialog();
+                            }
+                          } catch (e) {
+                            log('Payment confirmation error: $e');
+                            if (mounted) {
+                              setState(() => _isProcessing = false);
+                              _showFailureDialog();
+                            }
                           }
-                        } catch (e) {
-                          log('Payment confirmation error: $e');
-                          if (mounted) {
-                            setState(() => _isProcessing = false);
-                            _showFailureDialog();
-                          }
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        'Yes, Paid',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                        child: Text(
+                          'Yes, Paid',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                */ ],
+                  */
+                ],
               ),
             ],
           ),
@@ -761,7 +771,10 @@ class _PaymentScreenState extends State<PaymentScreen>
                         const SizedBox(height: 12),
                         _instructionStep('1', 'Click on your UPI app above'),
                         _instructionStep('2', 'Complete payment in the app'),
-                        _instructionStep('3', 'Return here - we\'ll verify automatically'),
+                        _instructionStep(
+                          '3',
+                          'Return here - we\'ll verify automatically',
+                        ),
                       ],
                     ),
                   ),

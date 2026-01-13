@@ -20,12 +20,7 @@ class ProductCard extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(18),
       onTap: () {
-        // ignore: avoid_print
-        // print("Title: ${product.title}");
-        // print("Image: ${product.image}");
-        // print("Old Price: ${product.oldPrice}");
-        // print("Review: ${product.reviews}");
-        // print("Price: ${product.price}");
+       
         Navigator.push(
           context,
           MaterialPageRoute(
