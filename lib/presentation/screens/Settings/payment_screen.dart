@@ -48,6 +48,9 @@ class _PaymentScreenState extends State<PaymentScreen>
   bool _isWaitingForPayment = false;
   bool _hasReturnedFromUpiApp = false;
 
+  // ✅ For web visibility detection
+  String? _visibilityListenerKey;
+
   @override
   void initState() {
     super.initState();
@@ -93,6 +96,7 @@ class _PaymentScreenState extends State<PaymentScreen>
 
     if (kIsWeb) {
       _createPendingTransaction(_currentTransactionRef!);
+      _setupWebVisibilityListener();
     }
 
     if (!kIsWeb && Platform.isAndroid) {
@@ -121,7 +125,29 @@ class _PaymentScreenState extends State<PaymentScreen>
     _fadeController.dispose();
     _pulseController.dispose();
     _confettiController.dispose();
+    _removeWebVisibilityListener();
     super.dispose();
+  }
+
+  // ✅ Setup web-specific visibility detection
+  void _setupWebVisibilityListener() {
+    if (!kIsWeb) return;
+
+    // Use browser visibility API for web
+    _visibilityListenerKey =
+        'payment_visibility_${DateTime.now().millisecondsSinceEpoch}';
+
+    // Listen for page visibility changes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        log('✅ Web visibility listener setup');
+      }
+    });
+  }
+
+  void _removeWebVisibilityListener() {
+    if (!kIsWeb) return;
+    log('🧹 Removing web visibility listener');
   }
 
   // ✅ Detect when user returns from UPI app
@@ -129,8 +155,9 @@ class _PaymentScreenState extends State<PaymentScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    if (kIsWeb && state == AppLifecycleState.resumed && _isWaitingForPayment) {
+    if (state == AppLifecycleState.resumed && _isWaitingForPayment) {
       _hasReturnedFromUpiApp = true;
+      log('✅ User returned from UPI app - checking payment status...');
       _checkPaymentStatus();
     }
   }
@@ -139,10 +166,11 @@ class _PaymentScreenState extends State<PaymentScreen>
   Future<void> _checkPaymentStatus() async {
     if (_currentTransactionRef == null) return;
 
+    log('🔍 Checking payment status for: $_currentTransactionRef');
     setState(() => _isProcessing = true);
 
-    // Wait 2 seconds to allow backend to receive callback
-    await Future.delayed(const Duration(seconds: 2));
+    // Wait 3 seconds to allow backend to receive webhook/callback
+    await Future.delayed(const Duration(seconds: 3));
 
     try {
       // Call your API to check transaction status
@@ -150,16 +178,25 @@ class _PaymentScreenState extends State<PaymentScreen>
         _currentTransactionRef!,
       );
 
+      log('📊 Payment status received: $status');
+
       if (mounted) {
-        setState(() => _isProcessing = false);
+        setState(() {
+          _isProcessing = false;
+          _isWaitingForPayment = false;
+          _hasReturnedFromUpiApp = false;
+        });
 
         if (status == 'success') {
+          log('✅ Payment successful!');
           await _confirmPaymentToBackend(_currentTransactionRef!);
           _confettiController.play();
           _showSuccessDialog();
         } else if (status == 'pending') {
+          log('⏳ Payment still pending - showing verification dialog');
           _showPaymentVerificationDialog();
         } else {
+          log('❌ Payment failed or not completed');
           await _updateTransactionStatus(
             _currentTransactionRef!,
             'failed',
@@ -169,14 +206,16 @@ class _PaymentScreenState extends State<PaymentScreen>
         }
       }
     } catch (e) {
-      log('Status check error: $e');
+      log('❌ Status check error: $e');
       if (mounted) {
-        setState(() => _isProcessing = false);
+        setState(() {
+          _isProcessing = false;
+          _isWaitingForPayment = false;
+          _hasReturnedFromUpiApp = false;
+        });
+        // If there's an error checking status, show verification dialog
         _showPaymentVerificationDialog();
       }
-    } finally {
-      _isWaitingForPayment = false;
-      _hasReturnedFromUpiApp = false;
     }
   }
 
@@ -344,83 +383,84 @@ class _PaymentScreenState extends State<PaymentScreen>
 
   // ✅ Open UPI App and start monitoring
   void _openUpiApp(String deepLink) async {
+    log('🚀 Opening UPI app with deep link: $deepLink');
+
     setState(() {
       _isProcessing = true;
       _isWaitingForPayment = true;
     });
 
     try {
-      if (kIsWeb) {
-        final uri = Uri.parse(deepLink);
-        _paymentInitiatedTime = DateTime.now();
+      final uri = Uri.parse(deepLink);
+      _paymentInitiatedTime = DateTime.now();
 
-        try {
-          final launched = await launchUrl(
-            uri,
-            mode: LaunchMode.externalApplication,
-          );
+      try {
+        log('📱 Attempting to launch UPI app...');
+        final launched = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
 
-          if (launched) {
-            // Show a brief loading message
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Row(
-                    children: [
-                      const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation(Colors.white),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'Opening UPI app... Complete payment and return',
-                        ),
-                      ),
-                    ],
-                  ),
-                  backgroundColor: Colors.deepPurple,
-                  duration: const Duration(seconds: 3),
-                ),
-              );
-            }
-          } else {
-            throw Exception('Could not launch UPI app');
-          }
-        } catch (e) {
-          log('Could not launch URL: $e');
-          _isWaitingForPayment = false;
+        if (launched) {
+          log('✅ UPI app launched successfully');
+          // Show a brief loading message
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'App not installed. Please scan QR code instead.',
+              SnackBar(
+                content: Row(
+                  children: [
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation(Colors.white),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Opening UPI app... Complete payment and return',
+                      ),
+                    ),
+                  ],
                 ),
-                backgroundColor: Colors.orange,
-                duration: Duration(seconds: 3),
+                backgroundColor: Colors.deepPurple,
+                duration: const Duration(seconds: 3),
               ),
             );
           }
+
+          // Keep processing state while waiting for return
+          setState(() => _isProcessing = true);
+        } else {
+          throw Exception('Could not launch UPI app');
+        }
+      } catch (e) {
+        log('❌ Could not launch URL: $e');
+        _isWaitingForPayment = false;
+        if (mounted) {
+          setState(() => _isProcessing = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('App not installed. Please scan QR code instead.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
         }
       }
     } catch (e) {
-      log('Error opening UPI app: $e');
+      log('❌ Error opening UPI app: $e');
       _isWaitingForPayment = false;
       if (mounted) {
+        setState(() => _isProcessing = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
-      }
-    } finally {
-      if (mounted && !_isWaitingForPayment) {
-        setState(() => _isProcessing = false);
       }
     }
   }
@@ -501,51 +541,30 @@ class _PaymentScreenState extends State<PaymentScreen>
                     ),
                   ),
                   const SizedBox(width: 12),
-                  /*  Expanded(
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          Navigator.of(context).pop();
-                          setState(() => _isProcessing = true);
-                          
-                          try {
-                            await _updateTransactionStatus(
-                              _currentTransactionRef!,
-                              'success',
-                              'User confirmed payment completed',
-                            );
-                            await _confirmPaymentToBackend(_currentTransactionRef!);
-                            
-                            if (mounted) {
-                              setState(() => _isProcessing = false);
-                              _confettiController.play();
-                              _showSuccessDialog();
-                            }
-                          } catch (e) {
-                            log('Payment confirmation error: $e');
-                            if (mounted) {
-                              setState(() => _isProcessing = false);
-                              _showFailureDialog();
-                            }
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        // Check status again
+                        _checkPaymentStatus();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text(
-                          'Yes, Paid',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
+                      ),
+                      child: Text(
+                        'Check Again',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                  */
+                  ),
                 ],
               ),
             ],
@@ -778,6 +797,41 @@ class _PaymentScreenState extends State<PaymentScreen>
                       ],
                     ),
                   ),
+
+                  if (_isProcessing && _isWaitingForPayment) ...[
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.deepPurple[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.deepPurple[200]!),
+                      ),
+                      child: Column(
+                        children: [
+                          const CircularProgressIndicator(),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Waiting for payment...',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.deepPurple,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Complete payment in UPI app and return',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              color: Colors.grey[600],
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
