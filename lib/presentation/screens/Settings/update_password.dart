@@ -479,11 +479,51 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       return;
     }
 
+    // 🔥 NEW: Check if new password is same as current
+    if (current == newPass) {
+      _showCustomSnackBar(
+        message: "New password must be different from current password",
+        isSuccess: false,
+      );
+      return;
+    }
+
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6C5CE7)),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                "Updating password...",
+                style: GoogleFonts.poppins(fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
     try {
       final token = await TokenService.getToken();
+
+      if (mounted) Navigator.pop(context); // Close loading
+
       if (token == null) {
         _showCustomSnackBar(
-          message: "Session expired, login again",
+          message: "Session expired, please login again",
           isSuccess: false,
         );
         return;
@@ -497,8 +537,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       );
 
       if (success) {
+        // 🎉 SUCCESS - Show clear message
         _showCustomSnackBar(
-          message: "Password updated successfully",
+          message: "Password updated! Use new password for next login",
           isSuccess: true,
         );
 
@@ -507,19 +548,118 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         _newPasswordController.clear();
         _confirmPasswordController.clear();
 
-        // Navigate back after delay
-        await Future.delayed(const Duration(seconds: 2));
+        // Show dialog with new password info
+        await _showSuccessDialog(newPass);
+
+        // Navigate back
         if (mounted) Navigator.pop(context);
       } else {
         _showCustomSnackBar(
-          message: "Failed to update password",
+          message: "Current password is incorrect",
           isSuccess: false,
         );
       }
     } catch (e) {
+      if (mounted) Navigator.pop(context); // Close loading if still open
       debugPrint("❌ CHANGE PASSWORD ERROR: $e");
-      _showCustomSnackBar(message: "Something went wrong", isSuccess: false);
+      _showCustomSnackBar(
+        message: "Something went wrong. Please try again",
+        isSuccess: false,
+      );
     }
+  }
+
+  // 🆕 SUCCESS DIALOG
+  Future<void> _showSuccessDialog(String newPassword) async {
+    return showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF00C853), Color(0xFF00E676)],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.check_circle,
+                color: Colors.white,
+                size: 48,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              "Password Updated!",
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "Your password has been successfully updated.",
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange.shade700),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      "Use your new password for next login",
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.orange.shade900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6C5CE7),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text(
+                "Got it!",
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showCustomSnackBar({required String message, required bool isSuccess}) {

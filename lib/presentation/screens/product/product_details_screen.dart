@@ -1,3 +1,4 @@
+import 'package:demo/data/providers/auth_provider.dart';
 import 'package:demo/data/providers/cart_provider.dart';
 import 'package:demo/data/services/provider.dart';
 import 'package:demo/presentation/screens/Auth/dashboard_screen.dart';
@@ -287,31 +288,44 @@ class _EnhancedNailProductDetailsState extends State<EnhancedNailProductDetails>
                         ),
                       ),
                     ),
-                    // 🔥 FAVORITE BUTTON - Provider integration
+                    // 🔥 FAVORITE BUTTON - FIXED
                     Positioned(
                       top: 12,
                       right: 12,
                       child: InkWell(
                         onTap: () async {
-                          // 🔥 Provider થી toggle કરો
-                          await context
-                              .read<FavoritesProvider>()
-                              .toggleFavorite(
-                                1,
-                                null,
-                                productId: widget.productId,
-                              );
+                          // 🔥 GET AUTH PROVIDER
+                          final authProvider = context.read<AuthProvider>();
 
-                          if (mounted) {
-                            // ignore: use_build_context_synchronously
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  isFavorite
-                                      ? "Removed from favorites"
-                                      : "Added to favorites",
+                          if (authProvider.userId != null) {
+                            // 🔥 TOGGLE FAVORITE - Use productId only (no product object needed)
+                            await context
+                                .read<FavoritesProvider>()
+                                .toggleFavorite(
+                                  authProvider.userId!,
+                                  null, // product object નથી, માત્ર productId use કરો
+                                  productId: widget.productId,
+                                );
+
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    isFavorite
+                                        ? "Removed from favorites"
+                                        : "Added to favorites",
+                                  ),
+                                  duration: const Duration(seconds: 1),
+                                  behavior: SnackBarBehavior.floating,
                                 ),
-                                duration: const Duration(seconds: 1),
+                              );
+                            }
+                          } else {
+                            // User not logged in
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please login to add favorites'),
+                                duration: Duration(seconds: 2),
                                 behavior: SnackBarBehavior.floating,
                               ),
                             );
@@ -351,7 +365,7 @@ class _EnhancedNailProductDetailsState extends State<EnhancedNailProductDetails>
     );
   }
 
-  // 🔥 DETAILS SECTION - હવે cart state provider થી લે છે
+  // 🔥 DETAILS SECTION
   Widget _details(CartProvider cartProvider, int cartQuantity) {
     return Container(
       decoration: BoxDecoration(
@@ -422,7 +436,7 @@ class _EnhancedNailProductDetailsState extends State<EnhancedNailProductDetails>
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '₹ ${widget.price}',
+                '₹ ${widget.price.toInt()}',
                 style: GoogleFonts.poppins(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
@@ -434,7 +448,7 @@ class _EnhancedNailProductDetailsState extends State<EnhancedNailProductDetails>
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
-                  '₹ ${widget.oldPrice}',
+                  '₹ ${widget.oldPrice.toInt()}',
                   style: GoogleFonts.poppins(
                     fontSize: 15,
                     decoration: TextDecoration.lineThrough,
@@ -506,7 +520,6 @@ class _EnhancedNailProductDetailsState extends State<EnhancedNailProductDetails>
           const SizedBox(height: 24),
           _sizeSection(),
           const SizedBox(height: 24),
-          // 🔥 QUANTITY SECTION - હવે cart quantity બતાવે છે
           Text(
             'Quantity',
             style: GoogleFonts.poppins(
@@ -514,38 +527,8 @@ class _EnhancedNailProductDetailsState extends State<EnhancedNailProductDetails>
               fontWeight: FontWeight.w600,
             ),
           ),
-          // const SizedBox(height: 12),
-          /*   Row(
-            children: [
-              _qtyButton(Icons.remove, () {
-                if (qty > 1) setState(() => qty--);
-              }),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  qty.toString(),
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              _qtyButton(Icons.add, () {
-                setState(() => qty++);
-              }),
-            ],
-          ),
-         */
           const SizedBox(height: 28),
-          // 🔥 ACTION BUTTONS - હવે cart provider સાથે
+          // 🔥 ACTION BUTTONS
           _actionButtons(cartProvider, cartQuantity),
           const SizedBox(height: 28),
           _expandableSections(),
@@ -556,7 +539,7 @@ class _EnhancedNailProductDetailsState extends State<EnhancedNailProductDetails>
     );
   }
 
-  // 🔥 ACTION BUTTONS - Provider integration
+  // 🔥 ACTION BUTTONS - FIXED WITH AUTHPROVIDER
   Widget _actionButtons(CartProvider cartProvider, int cartQuantity) {
     final isLoading = cartProvider.isLoading;
 
@@ -574,18 +557,32 @@ class _EnhancedNailProductDetailsState extends State<EnhancedNailProductDetails>
                   : () async {
                       _controller.forward().then((_) => _controller.reverse());
 
-                      // 🔥 Provider થી cart માં add કરો
-                      await cartProvider.addToCart(
-                        userId: 1,
-                        productId: widget.productId,
-                        quantity: qty,
-                      );
+                      // 🔥 GET AUTH PROVIDER
+                      final authProvider = context.read<AuthProvider>();
 
-                      if (mounted) {
+                      if (authProvider.userId != null) {
+                        // 🔥 ADD TO CART WITH DYNAMIC USER ID
+                        await cartProvider.addToCart(
+                          userId: authProvider.userId!,
+                          productId: widget.productId,
+                          quantity: qty,
+                        );
+
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text("${widget.title} added to cart"),
+                              duration: const Duration(seconds: 1),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      } else {
+                        // User not logged in
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text("${widget.title} added to cart"),
-                            duration: const Duration(seconds: 1),
+                          const SnackBar(
+                            content: Text('Please login to add to cart'),
+                            duration: Duration(seconds: 2),
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
@@ -649,10 +646,15 @@ class _EnhancedNailProductDetailsState extends State<EnhancedNailProductDetails>
                   children: [
                     IconButton(
                       onPressed: () async {
-                        await cartProvider.decrementQuantity(
-                          1,
-                          widget.productId,
-                        );
+                        // 🔥 GET AUTH PROVIDER
+                        final authProvider = context.read<AuthProvider>();
+
+                        if (authProvider.userId != null) {
+                          await cartProvider.decrementQuantity(
+                            authProvider.userId!,
+                            widget.productId,
+                          );
+                        }
                       },
                       icon: const Icon(Icons.remove, size: 20),
                       color: const Color(0xFF6C5CE7),
@@ -677,10 +679,15 @@ class _EnhancedNailProductDetailsState extends State<EnhancedNailProductDetails>
                     ),
                     IconButton(
                       onPressed: () async {
-                        await cartProvider.incrementQuantity(
-                          1,
-                          widget.productId,
-                        );
+                        // 🔥 GET AUTH PROVIDER
+                        final authProvider = context.read<AuthProvider>();
+
+                        if (authProvider.userId != null) {
+                          await cartProvider.incrementQuantity(
+                            authProvider.userId!,
+                            widget.productId,
+                          );
+                        }
                       },
                       icon: const Icon(Icons.add, size: 20),
                       color: const Color(0xFF6C5CE7),
@@ -708,24 +715,38 @@ class _EnhancedNailProductDetailsState extends State<EnhancedNailProductDetails>
               onPressed: () async {
                 _controller.forward().then((_) => _controller.reverse());
 
-                // જો cart માં નથી તો add કરો
-                if (cartQuantity == 0) {
-                  await cartProvider.addToCart(
-                    userId: 1,
-                    productId: widget.productId,
-                    quantity: qty,
-                  );
-                }
+                // 🔥 GET AUTH PROVIDER
+                final authProvider = context.read<AuthProvider>();
 
-                // Cart screen પર જાવ
-                if (mounted) {
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          const MainLayout(initialIndex: 1), // Cart tab
+                if (authProvider.userId != null) {
+                  // જો cart માં નથી તો add કરો
+                  if (cartQuantity == 0) {
+                    await cartProvider.addToCart(
+                      userId: authProvider.userId!,
+                      productId: widget.productId,
+                      quantity: qty,
+                    );
+                  }
+
+                  // Cart screen પર જાવ
+                  if (mounted) {
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const MainLayout(initialIndex: 1), // Cart tab
+                      ),
+                      (route) => false,
+                    );
+                  }
+                } else {
+                  // User not logged in
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please login to buy'),
+                      duration: Duration(seconds: 2),
+                      behavior: SnackBarBehavior.floating,
                     ),
-                    (route) => false,
                   );
                 }
               },
@@ -1039,30 +1060,6 @@ class _EnhancedNailProductDetailsState extends State<EnhancedNailProductDetails>
     );
   }
 
-  Widget _qtyButton(IconData icon, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: const Color(0xFF6C5CE7), width: 1.5),
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF6C5CE7).withOpacity(0.2),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Icon(icon, size: 20, color: const Color(0xFF6C5CE7)),
-      ),
-    );
-  }
-
   Widget _expandableSections() {
     return Column(
       children: [
@@ -1130,7 +1127,7 @@ class _EnhancedNailProductDetailsState extends State<EnhancedNailProductDetails>
   }
 }
 
-// Full Screen Image Viewer
+// Full Screen Image Viewer (No changes needed - same as before)
 class FullScreenImageViewer extends StatefulWidget {
   final List<String> images;
   final int initialIndex;
@@ -1263,7 +1260,7 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
   }
 }
 
-// Size Chart Bottom Sheet (no changes needed)
+// Size Chart Bottom Sheet (Same as before - no changes needed)
 class SizeChartBottomSheet extends StatelessWidget {
   const SizeChartBottomSheet({super.key});
 

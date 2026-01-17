@@ -1,31 +1,28 @@
 import 'package:demo/presentation/screens/Auth/auth.dart';
 import 'package:demo/presentation/screens/Auth/dashboard_screen.dart';
 import 'package:demo/presentation/screens/Auth/splash_screen.dart';
+import 'package:demo/data/providers/auth_provider.dart';
 import 'package:demo/data/providers/cart_provider.dart';
 import 'package:demo/data/services/provider.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
-import 'data/services/token_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await TokenService.getToken();
-  runApp(
-    MultiProvider(
-      // providers: [ChangeNotifierProvider(create: (_) => FavoritesProvider())],
-      providers: [
-        // ChangeNotifierProvider(create: (_) => FavoritesProvider()),
-        // ChangeNotifierProvider(create: (_) => CartProvider()), // 🔥 Add this
 
-         ChangeNotifierProvider(
-          create: (_) => CartProvider()..loadCart(1), // userId = 1
-        ),
-        
-        // 🔥 Favorites Provider
-        ChangeNotifierProvider(
-          create: (_) => FavoritesProvider()..loadFavorites(1), // userId = 1
-        ),
+  runApp(
+    /// 🔥 MULTI PROVIDER - Proper order is crucial
+    MultiProvider(
+      providers: [
+        /// 1️⃣ AUTH PROVIDER - Always first (others depend on it)
+        ChangeNotifierProvider(create: (_) => AuthProvider()..initialize()),
+
+        /// 2️⃣ CART PROVIDER - Don't load cart here, load after login
+        ChangeNotifierProvider(create: (_) => CartProvider()),
+
+        /// 3️⃣ FAVORITES PROVIDER - Don't load favorites here, load after login
+        ChangeNotifierProvider(create: (_) => FavoritesProvider()),
       ],
       child: const MyApp(),
     ),
@@ -70,23 +67,46 @@ class _SplashDeciderState extends State<SplashDecider> {
     // Premium splash delay for animations
     await Future.delayed(const Duration(milliseconds: 2500));
 
-    final token = await TokenService.getToken();
     if (!mounted) return;
 
-    if (token != null && token.isNotEmpty) {
-      /// ✅ USER LOGGED IN → MAIN LAYOUT
-      Navigator.pushAndRemoveUntil(
-        context,
-        _createRoute(const MainLayout()),
-        (_) => false,
-      );
+    // 🔥 Get AuthProvider
+    final authProvider = context.read<AuthProvider>();
+
+    // Wait for auth initialization if not already done
+    if (!authProvider.isInitialized) {
+      await authProvider.initialize();
+    }
+
+    if (!mounted) return;
+
+    // 🔥 Check if user is logged in using AuthProvider
+    if (authProvider.isLoggedIn && authProvider.userId != null) {
+      /// ✅ USER LOGGED IN → Load user data and go to main layout
+      final userId = authProvider.userId!;
+
+      // Load cart and favorites for logged-in user
+      if (mounted) {
+        context.read<CartProvider>().loadCart(userId);
+        context.read<FavoritesProvider>().loadFavorites(userId);
+      }
+
+      // Navigate to main layout
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          _createRoute(const MainLayout()),
+          (_) => false,
+        );
+      }
     } else {
       /// ❌ USER NOT LOGGED IN → AUTH
-      Navigator.pushAndRemoveUntil(
-        context,
-        _createRoute(const AuthScreen()),
-        (_) => false,
-      );
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          _createRoute(const AuthScreen()),
+          (_) => false,
+        );
+      }
     }
   }
 

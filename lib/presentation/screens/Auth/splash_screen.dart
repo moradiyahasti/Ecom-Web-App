@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 /// 🌸 PREMIUM SPLASH VIEW
@@ -227,8 +229,14 @@ class _PremiumSplashViewState extends State<PremiumSplashView>
                   ),
                   // Icon
                   Center(
-                    child: Icon(
-                      Icons.shopping_bag,
+                    child:/*  Image.asset(
+                      height: 250,
+                      width: 250,
+                      "assets/shree nails.png",
+                      fit: BoxFit.cover,
+                      color: Colors.white,
+                    ) */ Icon(
+                      FontAwesomeIcons.bagShopping,
                       color: Colors.white,
                       size: 50,
                     ),
@@ -255,7 +263,7 @@ class _PremiumSplashViewState extends State<PremiumSplashView>
                 colors: [Colors.deepPurple.shade700, Colors.purple.shade500],
               ).createShader(bounds),
               child: Text(
-                "Demo Store",
+                "Shree Nails",
                 style: GoogleFonts.poppins(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
@@ -268,7 +276,7 @@ class _PremiumSplashViewState extends State<PremiumSplashView>
 
             // Subtitle
             Text(
-              "Premium shopping experience",
+              "Premium Nails experience",
               style: GoogleFonts.poppins(
                 fontSize: 15,
                 color: Colors.grey.shade600,
@@ -276,7 +284,7 @@ class _PremiumSplashViewState extends State<PremiumSplashView>
               ),
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
 
             // Features
             Row(

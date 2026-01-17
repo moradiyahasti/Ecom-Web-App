@@ -1,6 +1,8 @@
+import 'dart:async';
+import 'package:demo/data/services/token_service.dart';
 import 'package:demo/presentation/screens/Auth/dashboard_screen.dart';
 import 'package:demo/data/services/api_service.dart';
-import 'package:demo/data/services/token_service.dart';
+import 'package:demo/presentation/screens/Auth/lofin_logout_handler.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -19,6 +21,12 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
   bool showPassword = false;
   bool rememberMe = false;
   bool isLoading = false;
+
+  // 🆕 ADD THESE
+  bool otpSent = false;
+  bool showNewPassword = false;
+  int resendTimer = 0;
+  Timer? _timer;
 
   late AnimationController _formController;
   late AnimationController _imageController;
@@ -77,7 +85,34 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     regEmail.dispose();
     regPassword.dispose();
     forgotEmail.dispose();
+    _imageController.dispose();
+    otpController.dispose();
+    newPasswordController.dispose();
     super.dispose();
+  }
+  // 🆕 ADD THESE METHODS
+
+  void _startResendTimer() {
+    setState(() => resendTimer = 60);
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (resendTimer > 0) {
+        setState(() => resendTimer--);
+      } else {
+        timer.cancel();
+      }
+    });
+  }
+
+  void _resetForgotPasswordState() {
+    setState(() {
+      otpSent = false;
+      resendTimer = 0;
+      forgotEmail.clear();
+      otpController.clear();
+      newPasswordController.clear();
+    });
+    _timer?.cancel();
   }
 
   void _showCustomSnackBar({required String message, required bool isSuccess}) {
@@ -152,30 +187,45 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
 
     setState(() => isLoading = false);
 
-    if (res["status"] == 200) {
-      final data = res["data"];
+    if (res['status'] == 200) {
+      final data = res['data'];
+
+      // 🔥 EXTRACT ALL DATA FIRST
+      final token = data['token'];
+      final refreshToken = data['refreshToken']; // 🔥 ADD THIS
+      final userId = data['user']['id'];
+      final name = data['user']['name'];
+      final email = data['user']['email'];
+
+      // 🔥 SAVE LOGIN DATA
       await TokenService.saveLoginData(
-        token: data["token"],
-        name: data["user"]["name"],
-        email: data["user"]["email"],
-
-        userId: data['user']['id'], // ✅ VERY IMPORTANT
+        token: token,
+        refreshToken: refreshToken, // 🔥 Pass refresh token
+        name: name,
+        email: email,
+        userId: userId,
       );
 
-      _showCustomSnackBar(
-        message: "Welcome back ${data["user"]["name"]}!",
-        isSuccess: true,
-      );
+      // 🔥 USE handleLogin HELPER (if you have this function)
+      if (context.mounted) {
+        await handleLogin(
+          context: context,
+          userId: userId,
+          userName: name,
+          userEmail: email,
+          token: token,
+        );
 
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => MainLayout()),
-      );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MainLayout()),
+        );
+      }
     } else {
+      // 🔥 HANDLE LOGIN FAILURE
       _showCustomSnackBar(
-        message: res["data"]["message"] ?? "Login failed",
+        message:
+            res["data"]["error"] ?? res["data"]["message"] ?? "Login failed",
         isSuccess: false,
       );
     }
@@ -495,7 +545,18 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
         ),
         const SizedBox(height: 20),
         _label("Password"),
-        _animatedPasswordInput(controller: loginPassword),
+        // _animatedPasswordInput(controller: loginPassword),
+        // _label("Password"),
+        _animatedPasswordInput(
+          controller: loginPassword,
+          showPassword: showPassword,
+          onToggle: () {
+            setState(() {
+              showPassword = !showPassword;
+            });
+          },
+        ),
+
         const SizedBox(height: 14),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -562,8 +623,19 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
           icon: Icons.email_outlined,
         ),
         const SizedBox(height: 20),
+        // _label("Password"),
+        // _animatedPasswordInput(controller: regPassword),
         _label("Password"),
-        _animatedPasswordInput(controller: regPassword),
+        _animatedPasswordInput(
+          controller: regPassword,
+          showPassword: showPassword,
+          onToggle: () {
+            setState(() {
+              showPassword = !showPassword;
+            });
+          },
+        ),
+
         _animatedButton(
           "Create Account",
           onTap: onRegister,
@@ -579,35 +651,195 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     );
   }
 
+  // 🆕 ADD THESE METHODS
+
+  void _sendOTP() async {
+    if (forgotEmail.text.trim().isEmpty) {
+      _showCustomSnackBar(message: "Please enter your email", isSuccess: false);
+      return;
+    }
+
+    // Email validation
+    if (!RegExp(
+      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+    ).hasMatch(forgotEmail.text.trim())) {
+      _showCustomSnackBar(
+        message: "Please enter a valid email",
+        isSuccess: false,
+      );
+      return;
+    }
+
+    setState(() => isLoading = true);
+
+    final res = await ApiService.forgotPassword(email: forgotEmail.text.trim());
+
+    setState(() => isLoading = false);
+
+    if (res["status"] == 200) {
+      setState(() => otpSent = true);
+      _startResendTimer();
+      _showCustomSnackBar(
+        message: res["data"]["message"] ?? "OTP sent to your email!",
+        isSuccess: true,
+      );
+    } else {
+      _showCustomSnackBar(
+        message: res["data"]["error"] ?? "Failed to send OTP",
+        isSuccess: false,
+      );
+    }
+  }
+
+  void _resendOTP() async {
+    if (resendTimer > 0) return;
+
+    setState(() => isLoading = true);
+
+    final res = await ApiService.resendOTP(email: forgotEmail.text.trim());
+
+    setState(() => isLoading = false);
+
+    if (res["status"] == 200) {
+      _startResendTimer();
+      _showCustomSnackBar(
+        message: "New OTP sent to your email!",
+        isSuccess: true,
+      );
+    } else {
+      _showCustomSnackBar(
+        message: res["data"]["error"] ?? "Failed to resend OTP",
+        isSuccess: false,
+      );
+    }
+  }
+
+  void _resetPassword() async {
+    if (otpController.text.trim().isEmpty ||
+        newPasswordController.text.trim().isEmpty) {
+      _showCustomSnackBar(message: "Please fill all fields", isSuccess: false);
+      return;
+    }
+
+    if (otpController.text.trim().length != 6) {
+      _showCustomSnackBar(message: "OTP must be 6 digits", isSuccess: false);
+      return;
+    }
+
+    if (newPasswordController.text.trim().length < 6) {
+      _showCustomSnackBar(
+        message: "Password must be at least 6 characters",
+        isSuccess: false,
+      );
+      return;
+    }
+
+    setState(() => isLoading = true);
+
+    final res = await ApiService.resetPassword(
+      email: forgotEmail.text.trim(),
+      otp: otpController.text.trim(),
+      newPassword: newPasswordController.text.trim(),
+    );
+
+    setState(() => isLoading = false);
+
+    if (res["status"] == 200) {
+      _showCustomSnackBar(
+        message: "Password reset successfully! Please login.",
+        isSuccess: true,
+      );
+
+      await Future.delayed(const Duration(milliseconds: 1500));
+
+      _resetForgotPasswordState();
+      _switchView(AuthView.login);
+    } else {
+      _showCustomSnackBar(
+        message: res["data"]["error"] ?? "Password reset failed",
+        isSuccess: false,
+      );
+    }
+  }
+
+  // Add these controllers
+  final TextEditingController otpController = TextEditingController();
+  final TextEditingController newPasswordController = TextEditingController();
+
   Widget _forgotView() {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _title("Forgot Password?", "Enter your email to reset"),
+        _title(
+          otpSent ? "Enter OTP" : "Forgot Password?",
+          otpSent
+              ? "Check your email for the OTP"
+              : "Enter your email to receive OTP",
+        ),
         const SizedBox(height: 28),
-        _label("Email"),
-        _animatedInput(
-          "Enter your email",
-          controller: forgotEmail,
-          icon: Icons.email_outlined,
-        ),
-        _animatedButton(
-          "Send Reset Link",
-          onTap: () {
-            _showCustomSnackBar(
-              message: "Reset link sent to your email!",
-              isSuccess: true,
-            );
-          },
-          icon: Icons.send,
-        ),
+
+        // STEP 1: EMAIL INPUT
+        if (!otpSent) ...[
+          _label("Email"),
+          _animatedInput(
+            "Enter your email",
+            controller: forgotEmail,
+            icon: Icons.email_outlined,
+          ),
+          _animatedButton("Send OTP", onTap: _sendOTP, icon: Icons.send),
+        ]
+        // STEP 2: OTP & NEW PASSWORD INPUT
+        else ...[
+          _label("OTP Code"),
+          _animatedInput(
+            "Enter 6-digit OTP",
+            controller: otpController,
+            icon: Icons.lock_clock_outlined,
+          ),
+          const SizedBox(height: 20),
+          _label("New Password"),
+          _animatedPasswordInput(
+            controller: newPasswordController,
+            showPassword: showNewPassword,
+            onToggle: () => setState(() => showNewPassword = !showNewPassword),
+          ),
+          const SizedBox(height: 14),
+
+          // RESEND & CHANGE EMAIL OPTIONS
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Resend OTP
+              resendTimer > 0
+                  ? Text(
+                      "Resend in ${resendTimer}s",
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: Colors.grey,
+                      ),
+                    )
+                  : _link("Resend OTP", _resendOTP),
+
+              // Change Email
+              _link("Change Email", () {
+                _resetForgotPasswordState();
+              }),
+            ],
+          ),
+
+          _animatedButton(
+            "Reset Password",
+            onTap: _resetPassword,
+            icon: Icons.check_circle,
+          ),
+        ],
+
         const SizedBox(height: 16),
-        _bottomText(
-          "Remember password? ",
-          "Login",
-          () => _switchView(AuthView.login),
-        ),
+        _bottomText("Remember password? ", "Login", () {
+          _resetForgotPasswordState();
+          _switchView(AuthView.login);
+        }),
       ],
     );
   }
@@ -649,6 +881,8 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
       ),
     );
   }
+
+  bool _showPassword = false;
 
   Widget _animatedInput(
     String hint, {
@@ -712,7 +946,11 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _animatedPasswordInput({required TextEditingController controller}) {
+  Widget _animatedPasswordInput({
+    required TextEditingController controller,
+    required bool showPassword,
+    required VoidCallback onToggle,
+  }) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 400),
@@ -744,32 +982,19 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                 prefixIcon: const Icon(
                   Icons.lock_outline,
                   color: Color(0xff5B3DF5),
-                  size: 20,
                 ),
                 suffixIcon: IconButton(
                   icon: Icon(
                     showPassword ? Icons.visibility : Icons.visibility_off,
-                    size: 20,
                     color: Colors.grey,
                   ),
-                  onPressed: () => setState(() => showPassword = !showPassword),
+                  onPressed: onToggle,
                 ),
                 filled: true,
                 fillColor: Colors.grey.shade50,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade200),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(
-                    color: Color(0xff5B3DF5),
-                    width: 2,
-                  ),
                 ),
               ),
             ),
@@ -869,7 +1094,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
               TextSpan(text: text),
               TextSpan(
                 text: action,
-                style: const TextStyle(
+                style: GoogleFonts.poppins(
                   color: Color(0xff5B3DF5),
                   fontWeight: FontWeight.bold,
                 ),

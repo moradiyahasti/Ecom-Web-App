@@ -1,6 +1,8 @@
 import 'package:confetti/confetti.dart';
+import 'package:demo/data/providers/auth_provider.dart';
 import 'package:demo/presentation/screens/Settings/address_screen.dart';
 import 'package:demo/data/providers/cart_provider.dart';
+import 'package:demo/utils/snackbar_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -32,9 +34,13 @@ class CartScreenState extends State<CartScreen> {
   @override
   void initState() {
     super.initState();
-    // 🔥 Load cart from provider
+  
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<CartProvider>().loadCart(1);
+      final authProvider = context.read<AuthProvider>();
+
+      if (authProvider.userId != null) {
+        context.read<CartProvider>().loadCart(authProvider.userId!);
+      }
     });
   }
 
@@ -44,7 +50,6 @@ class CartScreenState extends State<CartScreen> {
     _confettiController.dispose();
     super.dispose();
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -309,8 +314,16 @@ class CartScreenState extends State<CartScreen> {
             children: [
               IconButton(
                 icon: const Icon(Icons.close, size: 20),
+              
                 onPressed: () async {
-                  await cartProvider.removeFromCart(1, item.productId);
+                  final authProvider = context.read<AuthProvider>();
+
+                  if (authProvider.userId != null) {
+                    await cartProvider.removeFromCart(
+                      authProvider.userId!, // 🔥 DYNAMIC
+                      item.productId,
+                    );
+                  }
                 },
               ),
               Text(
@@ -373,7 +386,17 @@ class CartScreenState extends State<CartScreen> {
           IconButton(
             icon: const Icon(Icons.close),
             onPressed: () async {
-              await cartProvider.removeFromCart(1, item.productId);
+              // await cartProvider.removeFromCart(1, item.productId);
+              await cartProvider.removeFromCart(item.userID, item.productId);
+
+              if (mounted) {
+                SnackbarService.show(
+                  context: context,
+                  title: "Removed!",
+                  message: "${item.title} removed from cart",
+                  isSuccess: false,
+                );
+              }
             },
           ),
         ],
@@ -383,6 +406,8 @@ class CartScreenState extends State<CartScreen> {
 
   Widget _qtyCounter(int productId, int quantity) {
     final cartProvider = context.read<CartProvider>();
+    final authProvider = context.read<AuthProvider>(); // 🔥 GET AUTH
+
     final isMobile = MediaQuery.of(context).size.width < 700;
 
     return Container(
@@ -398,15 +423,43 @@ class CartScreenState extends State<CartScreen> {
         children: [
           _qtyButton(
             icon: Icons.remove,
+          
             onTap: () async {
-              await cartProvider.decrementQuantity(1, productId);
+              if (authProvider.userId != null) {
+                await cartProvider.decrementQuantity(
+                  authProvider.userId!, 
+                  productId,
+                );
+                if (mounted) {
+                  SnackbarService.show(
+                    context: context,
+                    title: "Updated!",
+                    message: "Quantity decreased",
+                    isSuccess: true,
+                  );
+                }
+              }
             },
           ),
           Text(quantity.toString(), style: const TextStyle(fontSize: 13)),
           _qtyButton(
             icon: Icons.add,
+           
             onTap: () async {
-              await cartProvider.incrementQuantity(1, productId);
+              if (authProvider.userId != null) {
+                await cartProvider.incrementQuantity(
+                  authProvider.userId!, // 🔥 DYNAMIC
+                  productId,
+                );
+                if (mounted) {
+                  SnackbarService.show(
+                    context: context,
+                    title: "Updated!",
+                    message: "Quantity increased",
+                    isSuccess: true,
+                  );
+                }
+              }
             },
           ),
         ],

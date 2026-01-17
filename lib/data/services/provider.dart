@@ -4,12 +4,12 @@ import 'package:flutter/foundation.dart';
 
 class FavoritesProvider with ChangeNotifier {
   final Set<int> _favoriteIds = {};
-  List<Product> _favorites = []; // 🔥 ADD THIS - Actual product list
+  List<Product> _favorites = [];
   bool _isLoading = false;
 
   bool get isLoading => _isLoading;
   Set<int> get favoriteIds => _favoriteIds;
-  List<Product> get favorites => _favorites; // 🔥 ADD THIS GETTER
+  List<Product> get favorites => _favorites;
 
   /// 🔥 CHECK if product is favorite
   bool isFavorite(int productId) {
@@ -19,17 +19,23 @@ class FavoritesProvider with ChangeNotifier {
   /// 🔥 LOAD favorites from API
   Future<void> loadFavorites(int userId) async {
     try {
+      debugPrint("🔄 Loading favorites for user: $userId");
+
       _isLoading = true;
       notifyListeners();
 
       // 🔥 API માંથી actual products લો
       final products = await ApiService.getFavorites(userId);
-      
+
       // 🔥 બંને update કરો - IDs અને Products
       _favoriteIds.clear();
       _favoriteIds.addAll(products.map((p) => p.id));
-      
-      _favorites = products; // 🔥 Products પણ store કરો
+
+      _favorites = products;
+
+      debugPrint(
+        "✅ Favorites loaded: ${_favorites.length} items for user $userId",
+      );
 
       _isLoading = false;
       notifyListeners();
@@ -40,10 +46,7 @@ class FavoritesProvider with ChangeNotifier {
     }
   }
 
-  /// 🔥 TOGGLE favorite - accepts BOTH Product object AND productId
-  /// આ function બે રીતે call કરી શકાય:
-  /// 1. toggleFavorite(1, product) - જ્યારે Product object available હોય
-  /// 2. toggleFavorite(1, null, productId: 123) - જ્યારે માત્ર productId હોય
+  /// 🔥 TOGGLE favorite
   Future<void> toggleFavorite(
     int userId,
     Product? product, {
@@ -51,24 +54,28 @@ class FavoritesProvider with ChangeNotifier {
   }) async {
     // 🔥 Determine the actual productId
     final id = product?.id ?? productId;
-    
+
     if (id == null) {
       debugPrint("❌ Error: No productId provided");
       return;
     }
 
+    debugPrint("🔄 Toggling favorite - User: $userId, Product: $id");
+
     try {
-      // 🔥 OPTIMISTIC UPDATE - પહેલા UI update કરો
-      if (_favoriteIds.contains(id)) {
+      // 🔥 OPTIMISTIC UPDATE
+      final wasInFavorites = _favoriteIds.contains(id);
+
+      if (wasInFavorites) {
         _favoriteIds.remove(id);
-        // 🔥 Product list માંથી પણ remove કરો
         _favorites.removeWhere((p) => p.id == id);
+        debugPrint("🗑️ Removed from favorites (optimistic): Product $id");
       } else {
         _favoriteIds.add(id);
-        // 🔥 જો Product object available છે તો list માં add કરો
         if (product != null && !_favorites.any((p) => p.id == product.id)) {
           _favorites.add(product);
         }
+        debugPrint("💖 Added to favorites (optimistic): Product $id");
       }
       notifyListeners();
 
@@ -80,21 +87,24 @@ class FavoritesProvider with ChangeNotifier {
 
       // 🔥 VERIFY - API response સાથે sync કરો
       if (isFavorite) {
-        _favoriteIds.add(id);
-        // જો product object છે અને list માં નથી, તો add કરો
-        if (product != null && !_favorites.any((p) => p.id == product.id)) {
-          _favorites.add(product);
+        if (!_favoriteIds.contains(id)) {
+          _favoriteIds.add(id);
+          if (product != null && !_favorites.any((p) => p.id == product.id)) {
+            _favorites.add(product);
+          }
         }
+        debugPrint("✅ Favorite confirmed: Product $id");
       } else {
         _favoriteIds.remove(id);
         _favorites.removeWhere((p) => p.id == id);
+        debugPrint("✅ Unfavorite confirmed: Product $id");
       }
 
       notifyListeners();
     } catch (e) {
       debugPrint("❌ Error toggling favorite: $e");
-      
-      // 🔥 ROLLBACK - error થયો તો પાછું revert કરો
+
+      // 🔥 ROLLBACK on error
       if (_favoriteIds.contains(id)) {
         _favoriteIds.remove(id);
         _favorites.removeWhere((p) => p.id == id);
@@ -108,13 +118,15 @@ class FavoritesProvider with ChangeNotifier {
     }
   }
 
-  /// 🔥 CLEAR all favorites (optional - જો reset button હોય)
+  /// 🔥 CLEAR all favorites (called on logout)
   void clearFavorites() {
+    debugPrint("🗑️ Clearing all favorites");
     _favoriteIds.clear();
     _favorites.clear();
+    _isLoading = false;
     notifyListeners();
   }
 
-  /// 🔥 GET favorite count (helper method)
+  /// 🔥 GET favorite count
   int get favoritesCount => _favorites.length;
 }

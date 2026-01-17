@@ -1,11 +1,11 @@
-// 🛒 services/cart_provider.dart
+
 import 'dart:developer';
 import 'package:demo/data/models/get_cart_item_model.dart';
 import 'package:demo/data/services/api_service.dart';
 import 'package:flutter/material.dart';
 
 class CartProvider extends ChangeNotifier {
-  Map<int, GetCartItemMode> _cartItems = {}; // productId -> GetCartItemMode
+  Map<int, GetCartItemMode> _cartItems = {}; 
   bool _isLoading = false;
 
   bool get isLoading => _isLoading;
@@ -41,13 +41,14 @@ class CartProvider extends ChangeNotifier {
     );
   }
 
-  // Load all cart items
+  /// 🔥 LOAD cart from API
   Future<void> loadCart(int userId) async {
     try {
+      log("🔄 Loading cart for user: $userId");
+      
       _isLoading = true;
       notifyListeners();
 
-      // 🔥 તમારી API service નો ઉપયોગ
       final cartItems = await ApiService.getCart(userId);
       
       _cartItems.clear();
@@ -55,31 +56,33 @@ class CartProvider extends ChangeNotifier {
         _cartItems[item.productId] = item;
       }
 
+      log("✅ Cart loaded: ${_cartItems.length} items, Total: ₹${totalPrice.toInt()} for user $userId");
+      
       _isLoading = false;
       notifyListeners();
-      log("✅ Cart loaded: ${_cartItems.length} items, Total: ₹${totalPrice.toInt()}");
     } catch (e) {
+      log("❌ Error loading cart: $e");
       _isLoading = false;
       notifyListeners();
-      log("❌ Error loading cart: $e");
     }
   }
 
-  // Add product to cart
+  /// 🔥 ADD to cart
   Future<bool> addToCart({
     required int userId,
     required int productId,
     int quantity = 1,
   }) async {
     try {
-      // 🔥 API call to add to cart
+      log("🔄 Adding to cart - User: $userId, Product: $productId");
+      
       final cartId = await ApiService.addToCart(
         userId: userId,
         productId: productId,
         quantity: quantity,
       );
 
-      // 🔄 Reload cart to get complete item details
+      // Reload cart to get complete item details
       await loadCart(userId);
 
       log("✅ Added to cart: Product $productId (CartID: $cartId)");
@@ -90,7 +93,7 @@ class CartProvider extends ChangeNotifier {
     }
   }
 
-  // Update quantity
+  /// 🔥 UPDATE quantity
   Future<bool> updateQuantity({
     required int userId,
     required int productId,
@@ -105,7 +108,8 @@ class CartProvider extends ChangeNotifier {
         return await removeFromCart(userId, productId);
       }
 
-      // 🔥 તમારી API service નો ઉપયોગ
+      log("🔄 Updating quantity - User: $userId, Product: $productId, Qty: $newQuantity");
+
       await ApiService.updateCartQuantity(
         cartId: cartItem.cartId,
         quantity: newQuantity,
@@ -118,9 +122,9 @@ class CartProvider extends ChangeNotifier {
         title: cartItem.title,
         subtitle: cartItem.subtitle,
         price: cartItem.price,
-        // oldPrice: cartItem.oldPrice,
         image: cartItem.image,
-        quantity: newQuantity, userID: cartItem.userID,
+        quantity: newQuantity,
+        userID: cartItem.userID,
       );
 
       notifyListeners();
@@ -132,7 +136,7 @@ class CartProvider extends ChangeNotifier {
     }
   }
 
-  // Increment quantity
+  /// 🔥 INCREMENT quantity
   Future<bool> incrementQuantity(int userId, int productId) async {
     final currentQty = getQuantity(productId);
     return await updateQuantity(
@@ -142,11 +146,10 @@ class CartProvider extends ChangeNotifier {
     );
   }
 
-  // Decrement quantity
+  /// 🔥 DECREMENT quantity
   Future<bool> decrementQuantity(int userId, int productId) async {
     final currentQty = getQuantity(productId);
     if (currentQty <= 1) {
-      // જો quantity 1 છે અને - દબાવો, તો item remove થઈ જશે
       return await removeFromCart(userId, productId);
     }
     return await updateQuantity(
@@ -156,13 +159,14 @@ class CartProvider extends ChangeNotifier {
     );
   }
 
-  // Remove from cart
+  /// 🔥 REMOVE from cart
   Future<bool> removeFromCart(int userId, int productId) async {
     final cartItem = _cartItems[productId];
     if (cartItem == null) return false;
 
     try {
-      // 🔥 તમારી API service નો ઉપયોગ
+      log("🔄 Removing from cart - User: $userId, Product: $productId");
+      
       await ApiService.removeFromCart(cartItem.cartId);
       
       _cartItems.remove(productId);
@@ -175,47 +179,39 @@ class CartProvider extends ChangeNotifier {
     }
   }
 
-  // Clear all cart (optional)
-  // Future<void> clearCart(int userId) async {
-  //   try {
-  //     // Remove all items one by one
-  //     final itemsToRemove = List<int>.from(_cartItems.keys);
-  //     for (var productId in itemsToRemove) {
-  //       await removeFromCart(userId, productId);
-  //     }
-  //     log("🗑️ Cart cleared");
-  //   } catch (e) {
-  //     log("❌ Error clearing cart: $e");
-  //   }
-  // }
+  /// 🔥 CLEAR cart (called on logout or after order)
+  Future<void> clearCart(int userId) async {
+    try {
+      log("🔄 Clearing cart for user: $userId");
+      
+      _isLoading = true;
+      notifyListeners();
 
-  // Get cart item by product ID
+      await ApiService.clearCart(userId);
+      
+      _cartItems.clear();
+      
+      _isLoading = false;
+      notifyListeners();
+      
+      log("✅ Cart cleared successfully for user $userId");
+    } catch (e) {
+      log("❌ Error clearing cart: $e");
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// 🔥 CLEAR LOCAL CART (called on logout - no API call)
+  void clearLocalCart() {
+    log("🗑️ Clearing local cart data");
+    _cartItems.clear();
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  /// Get cart item by product ID
   GetCartItemMode? getCartItem(int productId) {
     return _cartItems[productId];
   }
-
-  // cart_provider.dart માં આ method ઉમેરો
-// Clear all cart
-Future<void> clearCart(int userId) async {
-  try {
-    _isLoading = true;
-    notifyListeners();
-
-    // 🔥 Backend API call
-    await ApiService.clearCart(userId);
-    
-    // Local state પણ clear કરો
-    _cartItems.clear();
-    
-    _isLoading = false;
-    notifyListeners();
-    
-    log("✅ Cart cleared successfully");
-  } catch (e) {
-    log("❌ Error clearing cart: $e");
-    _isLoading = false;
-    notifyListeners();
-  }
-}
-
 }

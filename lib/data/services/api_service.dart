@@ -1,15 +1,15 @@
 import 'dart:convert';
-import 'dart:developer';
 import 'package:demo/data/models/get_cart_item_model.dart';
-import 'package:flutter/foundation.dart';
+import 'package:demo/data/services/token_service.dart';
+import 'package:demo/utils/app_loger.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/product_model.dart';
 
 class ApiService {
-  static const String baseUrl = "http://192.168.1.25:5000"; // office
-  // static const String baseUrl = "http://192.168.0.106:5000"; // home
+  // static const String baseUrl = "http://192.168.1.25:5000"; // office
+  static const String baseUrl = "http://192.168.0.104:5000"; // home
 
   static const headers = {"Content-Type": "application/json"};
 
@@ -23,13 +23,13 @@ class ApiService {
     final url = Uri.parse("$baseUrl/auth/register");
     final body = {"name": name, "email": email, "password": password};
 
-    debugPrint("➡️ REGISTER URL: $url");
-    debugPrint("➡️ BODY: ${jsonEncode(body)}");
+    AppLogger.api("REGISTER", url);
+    AppLogger.info("Body: ${jsonEncode(body)}");
 
     final res = await http.post(url, headers: headers, body: jsonEncode(body));
 
-    debugPrint("⬅️ STATUS: ${res.statusCode}");
-    debugPrint("⬅️ RESPONSE: ${res.body}");
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
 
     return {"status": res.statusCode, "data": jsonDecode(res.body)};
   }
@@ -41,13 +41,13 @@ class ApiService {
     final url = Uri.parse("$baseUrl/auth/login");
     final body = {"email": email, "password": password};
 
-    debugPrint("➡️ LOGIN URL: $url");
-    debugPrint("➡️ BODY: ${jsonEncode(body)}");
+    AppLogger.api("LOGIN", url);
+    AppLogger.info("Body: ${jsonEncode(body)}");
 
     final res = await http.post(url, headers: headers, body: jsonEncode(body));
 
-    debugPrint("⬅️ STATUS: ${res.statusCode}");
-    debugPrint("⬅️ RESPONSE: ${res.body}");
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
 
     return {"status": res.statusCode, "data": jsonDecode(res.body)};
   }
@@ -57,12 +57,12 @@ class ApiService {
   static Future<List<Product>> fetchProducts() async {
     final url = Uri.parse("$baseUrl/api/products");
 
-    log("➡️ GET PRODUCTS URL: $url");
+    AppLogger.api("GET PRODUCTS", url);
 
     final res = await http.get(url);
 
-    log("⬅️PRODUCTS STATUS: ${res.statusCode}");
-    log("⬅️PRODUCTS BODY: ${res.body}");
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
 
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
@@ -75,12 +75,12 @@ class ApiService {
   static Future<List<Product>> fetchTrending() async {
     final url = Uri.parse("$baseUrl/api/products/trending");
 
-    debugPrint("➡️ GET TRENDING URL: $url");
+    AppLogger.api("GET TRENDING", url);
 
     final res = await http.get(url);
 
-    debugPrint("⬅️ STATUS: ${res.statusCode}");
-    debugPrint("⬅️ BODY: ${res.body}");
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
 
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
@@ -93,12 +93,12 @@ class ApiService {
   static Future<Product> getProductById(int id) async {
     final url = Uri.parse("$baseUrl/api/products/$id");
 
-    debugPrint("➡️ GET PRODUCT BY ID URL: $url");
+    AppLogger.api("GET PRODUCT BY ID", url);
 
     final res = await http.get(url);
 
-    debugPrint("⬅️ STATUS: ${res.statusCode}");
-    debugPrint("⬅️ BODY: ${res.body}");
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
 
     return Product.fromJson(jsonDecode(res.body));
   }
@@ -106,12 +106,12 @@ class ApiService {
   static Future<List<Product>> searchProducts(String query) async {
     final url = Uri.parse("$baseUrl/api/products/search/$query");
 
-    debugPrint("➡️ SEARCH URL: $url");
+    AppLogger.api("SEARCH PRODUCTS", url);
 
     final res = await http.get(url);
 
-    debugPrint("⬅️ STATUS: ${res.statusCode}");
-    debugPrint("⬅️ BODY: ${res.body}");
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
 
     final List data = jsonDecode(res.body);
     return data.map((e) => Product.fromJson(e)).toList();
@@ -119,7 +119,6 @@ class ApiService {
 
   // ========================= CART =========================
 
-  /// ➕ ADD TO CART
   static Future<int> addToCart({
     required int userId,
     required int productId,
@@ -133,28 +132,20 @@ class ApiService {
       "quantity": quantity,
     };
 
-    // 🔹 LOG REQUEST
-    debugPrint("➡️ ADD TO CART URL: $url");
-    debugPrint("➡️ ADD TO CART BODY: ${jsonEncode(body)}");
+    AppLogger.api("ADD TO CART", url);
+    AppLogger.info("Body: ${jsonEncode(body)}");
 
     final res = await http.post(url, headers: headers, body: jsonEncode(body));
 
-    // 🔹 LOG RESPONSE STATUS
-    debugPrint("⬅️ STATUS CODE: ${res.statusCode}");
-
-    // 🔹 LOG RAW RESPONSE
-    debugPrint("⬅️ RESPONSE BODY: ${res.body}");
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
 
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body);
-
-      // 🔹 LOG PARSED DATA
-      debugPrint("✅ PARSED DATA: $data");
-      debugPrint("🆔 CART ID: ${data['cart']['id']}");
-
-      return data['cart']['id']; // return cart_id
+      AppLogger.success("Cart ID: ${data['cart']['id']}");
+      return data['cart']['id'];
     } else {
-      debugPrint("❌ ADD TO CART FAILED");
+      AppLogger.error("Add to cart failed");
       throw Exception("Add to cart failed");
     }
   }
@@ -162,43 +153,31 @@ class ApiService {
   static Future<List<GetCartItemMode>> getCart(int userId) async {
     final url = Uri.parse("$baseUrl/api/cart/$userId");
 
-    // 🔹 LOG REQUEST
-    log("➡️ GET CART URL: $url");
+    AppLogger.api("GET CART", url);
 
     final res = await http.get(
       url,
       headers: {"Content-Type": "application/json"},
     );
 
-    // 🔹 LOG STATUS
-    log("⬅️ STATUS CODE: ${res.statusCode}");
-
-    // 🔹 LOG RAW RESPONSE cg
-    log("⬅️ RAW RESPONSE: ${res.body}");
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
 
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
 
-      // 🔹 LOG PARSED JSON
-      log("✅ PARSED JSON LIST: $data");
-
       final cartItems = data.map((e) => GetCartItemMode.fromJson(e)).toList();
 
-      // 🔹 LOG MODEL DATA
       for (var item in cartItems) {
-        log(
-          "🛒 CartItem → "
-          "cartId: ${item.cartId}, "
-          "productId: ${item.productId}, "
-          "title: ${item.title}, "
-          "price: ${item.price}, "
-          "qty: ${item.quantity}",
+        AppLogger.info(
+          "CartItem → cartId: ${item.cartId}, productId: ${item.productId}, "
+          "title: ${item.title}, price: ${item.price}, qty: ${item.quantity}",
         );
       }
 
       return cartItems;
     } else {
-      log("❌ FAILED TO LOAD CART");
+      AppLogger.error("Failed to load cart");
       throw Exception("Failed to load cart");
     }
   }
@@ -211,31 +190,30 @@ class ApiService {
 
     final body = {"cart_id": cartId, "quantity": quantity};
 
-    debugPrint("➡️ UPDATE CART: $body");
+    AppLogger.api("UPDATE CART QUANTITY", url);
+    AppLogger.info("Body: ${jsonEncode(body)}");
 
     final res = await http.put(url, headers: headers, body: jsonEncode(body));
 
-    debugPrint("⬅️ STATUS: ${res.statusCode}");
-    debugPrint("⬅️ RESPONSE: ${res.body}");
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
 
     if (res.statusCode != 200) {
       throw Exception("Update quantity failed");
     }
   }
 
-  /// ❌ REMOVE FROM CART
   static Future<void> removeFromCart(int cartId) async {
     final url = Uri.parse("$baseUrl/api/cart/remove/$cartId");
 
-    debugPrint("➡️ REMOVE CART URL: $url");
+    AppLogger.api("REMOVE FROM CART", url);
 
     final res = await http.delete(url);
 
-    debugPrint("⬅️ REMOVE CART STATUS: ${res.statusCode}");
-    debugPrint("⬅️ REMOVE CART BODY: ${res.body}");
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
   }
 
-  /// 🔁 UPDATE QTY
   static Future<void> updateQuantity({
     required int cartId,
     required int quantity,
@@ -244,27 +222,27 @@ class ApiService {
 
     final body = {"cart_id": cartId, "quantity": quantity};
 
-    debugPrint("➡️ UPDATE QTY URL: $url");
-    debugPrint("➡️ BODY: ${jsonEncode(body)}");
+    AppLogger.api("UPDATE QUANTITY", url);
+    AppLogger.info("Body: ${jsonEncode(body)}");
 
     final res = await http.put(url, headers: headers, body: jsonEncode(body));
 
-    debugPrint("⬅️ STATUS: ${res.statusCode}");
-    debugPrint("⬅️ BODY: ${res.body}");
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
   }
 
   static Future<List<Product>> getFavorites(int userId) async {
     final url = Uri.parse("$baseUrl/api/favorites/$userId");
 
-    debugPrint("➡️ GET FAVORITES URL: $url");
+    AppLogger.api("GET FAVORITES", url);
 
     final res = await http.get(
       url,
       headers: {"Content-Type": "application/json"},
     );
 
-    debugPrint("⬅️ STATUS: ${res.statusCode}");
-    debugPrint("⬅️ BODY: ${res.body}");
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
 
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
@@ -276,9 +254,6 @@ class ApiService {
 
   // ========================= FAVORITES =========================
 
-  /// 🔁 TOGGLE FAVORITE
-  /// Adds or removes product from favorites.
-  /// Returns `true` if the product is now a favorite, `false` if removed.
   static Future<bool> toggleFavorite({
     required int userId,
     required int productId,
@@ -287,59 +262,93 @@ class ApiService {
 
     final body = {"user_id": userId, "product_id": productId};
 
-    debugPrint("➡️ TOGGLE FAVORITE URL: $url");
-    debugPrint("➡️ BODY: ${jsonEncode(body)}");
+    AppLogger.api("TOGGLE FAVORITE", url);
+    AppLogger.info("Body: ${jsonEncode(body)}");
 
     final res = await http.post(url, headers: headers, body: jsonEncode(body));
 
-    debugPrint("⬅️ STATUS: ${res.statusCode}");
-    debugPrint("⬅️ RESPONSE: ${res.body}");
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
 
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body);
-
-      // ✅ CORRECT KEY
       return data['favorite'] == true;
     } else {
       throw Exception("Failed to toggle favorite");
     }
   }
-
-  static Future<Map<String, dynamic>?> updateProfile({
-    required String token,
-    required String name,
-    required String email,
-  }) async {
+/* 
+ static Future<Map<String, dynamic>?> updateProfile({
+  required String token,
+  required String name,
+  required String email,
+}) async {
+  try {
     final url = Uri.parse("$baseUrl/auth/update-profile");
 
-    final res = await http.put(
+    AppLogger.api("UPDATE PROFILE", url);
+    AppLogger.info("Request Headers: Authorization Bearer [TOKEN]");
+    AppLogger.info("Request Body: {name: $name, email: $email}");
+
+    final response = await http.put(
       url,
       headers: {
         "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
+        "Authorization": "Bearer $token", // 🔥 This is correct
       },
-      body: jsonEncode({"name": name, "email": email}),
+      body: jsonEncode({
+        "name": name,
+        "email": email,
+      }),
     );
 
-    if (res.statusCode == 200) {
-      final data = jsonDecode(res.body);
-      return data['user']; // ✅ updated user
+    AppLogger.info("Status: ${response.statusCode}");
+    AppLogger.info("Response: ${response.body}");
+
+    // 🔥 BETTER ERROR HANDLING
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      
+      // Check if 'user' key exists in response
+      if (data.containsKey('user')) {
+        AppLogger.success("Profile updated successfully");
+        return data['user'];
+      } else {
+        AppLogger.error("Invalid response structure: ${response.body}");
+        return null;
+      }
     } else {
+      // 🔥 LOG DETAILED ERROR
+      AppLogger.error("Profile update failed - Status: ${response.statusCode}");
+      AppLogger.error("Error Response: ${response.body}");
+      
+      // Try to parse error message
+      try {
+        final errorData = jsonDecode(response.body);
+        AppLogger.error("Error Message: ${errorData['error'] ?? 'Unknown error'}");
+      } catch (e) {
+        AppLogger.error("Could not parse error response");
+      }
+      
       return null;
     }
+  } catch (e) {
+    AppLogger.error("Exception in updateProfile", e);
+    return null;
   }
-
+}
+ */
   static Future<bool> changePassword({
     required String oldPassword,
     required String newPassword,
     required String token,
   }) async {
     try {
-      // final token = await TokenService.getToken();
-      // ignore: unnecessary_null_comparison
-      if (token == null) return false;
+      if (token.isEmpty) return false;
 
       final url = Uri.parse("$baseUrl/auth/change-password");
+
+      AppLogger.api("CHANGE PASSWORD", url);
 
       final response = await http.put(
         url,
@@ -354,15 +363,14 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        // Password changed successfully
+        AppLogger.success("Password changed successfully");
         return true;
       } else {
-        // Error message from backend
-        log("Change password failed: ${response.body}");
+        AppLogger.error("Change password failed: ${response.body}");
         return false;
       }
     } catch (e) {
-      log("Exception in changePassword: $e");
+      AppLogger.error("Exception in changePassword", e);
       return false;
     }
   }
@@ -388,8 +396,8 @@ class ApiService {
       "pincode": pincode,
     };
 
-    log("➡️ SAVE ADDRESS URL: $url");
-    log("➡️ BODY: ${jsonEncode(body)}");
+    AppLogger.api("SAVE ADDRESS", url);
+    AppLogger.info("Body: ${jsonEncode(body)}");
 
     final response = await http.post(
       url,
@@ -397,17 +405,19 @@ class ApiService {
       body: jsonEncode(body),
     );
 
-    log("⬅️ STATUS: ${response.statusCode}");
-    log("⬅️ RESPONSE: ${response.body}");
+    AppLogger.info("Status: ${response.statusCode}");
+    AppLogger.info("Response: ${response.body}");
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
+      AppLogger.success("Address saved with ID: ${data["address_id"]}");
       return data["address_id"];
     } else {
-      log("❌ Address save failed");
+      AppLogger.error("Address save failed");
       return null;
     }
   }
+
   // ========================= PAYMENT =========================
 
   static Future<bool> createTransaction({
@@ -426,8 +436,8 @@ class ApiService {
       "payment_method": "UPI",
     };
 
-    log("➡️ CREATE TRANSACTION URL: $url");
-    log("➡️ BODY: ${jsonEncode(body)}");
+    AppLogger.api("CREATE TRANSACTION", url);
+    AppLogger.info("Body: ${jsonEncode(body)}");
 
     try {
       final response = await http.post(
@@ -439,17 +449,16 @@ class ApiService {
         body: jsonEncode(body),
       );
 
-      log("⬅️ STATUS: ${response.statusCode}");
-      log("⬅️ RESPONSE: ${response.body}");
+      AppLogger.info("Status: ${response.statusCode}");
+      AppLogger.info("Response: ${response.body}");
 
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
-      log("❌ CREATE TRANSACTION ERROR: $e");
+      AppLogger.error("Create transaction error", e);
       return false;
     }
   }
 
-  // ✅ Update transaction status
   static Future<bool> updateTransaction({
     required String transactionRef,
     required String status,
@@ -463,8 +472,8 @@ class ApiService {
       "upi_response": upiResponse,
     };
 
-    log("➡️ UPDATE TRANSACTION URL: $url");
-    log("➡️ BODY: ${jsonEncode(body)}");
+    AppLogger.api("UPDATE TRANSACTION", url);
+    AppLogger.info("Body: ${jsonEncode(body)}");
 
     try {
       final response = await http.post(
@@ -473,17 +482,16 @@ class ApiService {
         body: jsonEncode(body),
       );
 
-      log("⬅️ STATUS: ${response.statusCode}");
-      log("⬅️ RESPONSE: ${response.body}");
+      AppLogger.info("Status: ${response.statusCode}");
+      AppLogger.info("Response: ${response.body}");
 
       return response.statusCode == 200;
     } catch (e) {
-      log("❌ UPDATE TRANSACTION ERROR: $e");
+      AppLogger.error("Update transaction error", e);
       return false;
     }
   }
 
-  // ✅ Confirm payment (updated)
   static Future<bool> confirmPayment({
     required int orderId,
     required String transactionRef,
@@ -497,8 +505,8 @@ class ApiService {
       "payment_method": paymentMethod,
     };
 
-    log("➡️ PAYMENT CONFIRM URL: $url");
-    log("➡️ BODY: ${jsonEncode(body)}");
+    AppLogger.api("CONFIRM PAYMENT", url);
+    AppLogger.info("Body: ${jsonEncode(body)}");
 
     try {
       final response = await http.post(
@@ -507,29 +515,30 @@ class ApiService {
         body: jsonEncode(body),
       );
 
-      log("⬅️ STATUS: ${response.statusCode}");
-      log("⬅️ RESPONSE: ${response.body}");
+      AppLogger.info("Status: ${response.statusCode}");
+      AppLogger.info("Response: ${response.body}");
 
       return response.statusCode == 200;
     } catch (e) {
-      log("❌ CONFIRM PAYMENT ERROR: $e");
+      AppLogger.error("Confirm payment error", e);
       return false;
     }
   }
+
   // ========================= ORDERS =========================
 
   static Future<Map<String, dynamic>> getOrderDetails(int orderId) async {
     final url = Uri.parse("$baseUrl/api/orders/$orderId");
 
-    log("➡️ GET ORDER DETAILS URL: $url");
+    AppLogger.api("GET ORDER DETAILS", url);
 
     final res = await http.get(
       url,
       headers: {"Content-Type": "application/json"},
     );
 
-    log("⬅️ STATUS: ${res.statusCode}");
-    log("⬅️ BODY: ${res.body}");
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
 
     if (res.statusCode == 200) {
       return jsonDecode(res.body);
@@ -540,16 +549,15 @@ class ApiService {
 
   // ========================= CART CLEAR =========================
 
-  /// 🗑️ CLEAR ENTIRE CART
   static Future<void> clearCart(int userId) async {
     final url = Uri.parse("$baseUrl/api/cart/clear/$userId");
 
-    log("➡️ CLEAR CART URL: $url");
+    AppLogger.api("CLEAR CART", url);
 
     final res = await http.delete(url);
 
-    log("⬅️ CLEAR CART STATUS: ${res.statusCode}");
-    log("⬅️ CLEAR CART RESPONSE: ${res.body}");
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
 
     if (res.statusCode != 200) {
       throw Exception("Failed to clear cart");
@@ -565,11 +573,11 @@ class ApiService {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
+      AppLogger.error('Could not launch UPI');
       throw 'Could not launch UPI';
     }
   }
 
-  // GET SINGLE PRODUCT WITH USER ID FOR WISHLIST
   static Future<Product> getProductDetails({
     required int productId,
     int? userId,
@@ -578,12 +586,12 @@ class ApiService {
         ? Uri.parse("$baseUrl/api/products/$productId?user_id=$userId")
         : Uri.parse("$baseUrl/api/products/$productId");
 
-    log("➡️ GET PRODUCT DETAILS URL: $url");
+    AppLogger.api("GET PRODUCT DETAILS", url);
 
     final res = await http.get(url);
 
-    log("⬅️ STATUS: ${res.statusCode}");
-    log("⬅️ BODY: ${res.body}");
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
 
     if (res.statusCode == 200) {
       return Product.fromJson(jsonDecode(res.body));
@@ -594,17 +602,187 @@ class ApiService {
 
   static Future<String> getTransactionStatus(String transactionRef) async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/transactions/$transactionRef/status'),
-      );
+      final url = Uri.parse('$baseUrl/transactions/$transactionRef/status');
+
+      AppLogger.api("GET TRANSACTION STATUS", url);
+
+      final response = await http.get(url);
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return data['status']; // 'success', 'pending', 'failed'
+        final data = jsonDecode(response.body);
+        return data['status'];
       }
       return 'pending';
     } catch (e) {
+      AppLogger.error("Get transaction status error", e);
       return 'pending';
     }
   }
+  // ========================= FORGOT PASSWORD =========================
+
+  static Future<Map<String, dynamic>> forgotPassword({
+    required String email,
+  }) async {
+    final url = Uri.parse("$baseUrl/auth/forgot-password");
+    final body = {"email": email};
+
+    AppLogger.api("FORGOT PASSWORD", url);
+    AppLogger.info("Body: ${jsonEncode(body)}");
+
+    final res = await http.post(url, headers: headers, body: jsonEncode(body));
+
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
+
+    return {"status": res.statusCode, "data": jsonDecode(res.body)};
+  }
+
+  static Future<Map<String, dynamic>> verifyOTP({
+    required String email,
+    required String otp,
+  }) async {
+    final url = Uri.parse("$baseUrl/auth/verify-otp");
+    final body = {"email": email, "otp": otp};
+
+    AppLogger.api("VERIFY OTP", url);
+    AppLogger.info("Body: ${jsonEncode(body)}");
+
+    final res = await http.post(url, headers: headers, body: jsonEncode(body));
+
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
+
+    return {"status": res.statusCode, "data": jsonDecode(res.body)};
+  }
+
+  static Future<Map<String, dynamic>> resetPassword({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    final url = Uri.parse("$baseUrl/auth/reset-password");
+    final body = {"email": email, "otp": otp, "newPassword": newPassword};
+
+    AppLogger.api("RESET PASSWORD", url);
+    AppLogger.info("Body: ${jsonEncode(body)}");
+
+    final res = await http.post(url, headers: headers, body: jsonEncode(body));
+
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
+
+    return {"status": res.statusCode, "data": jsonDecode(res.body)};
+  }
+
+  static Future<Map<String, dynamic>> resendOTP({required String email}) async {
+    final url = Uri.parse("$baseUrl/auth/resend-otp");
+    final body = {"email": email};
+
+    AppLogger.api("RESEND OTP", url);
+    AppLogger.info("Body: ${jsonEncode(body)}");
+
+    final res = await http.post(url, headers: headers, body: jsonEncode(body));
+
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
+
+    return {"status": res.statusCode, "data": jsonDecode(res.body)};
+  }
+   static Future<String?> refreshToken() async {
+    try {
+      final refreshToken = await TokenService.getRefreshToken();
+      
+      if (refreshToken == null) return null;
+
+      final url = Uri.parse("$baseUrl/auth/refresh-token");
+      final response = await http.post(
+        url,
+        headers: headers,
+        body: jsonEncode({"refreshToken": refreshToken}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final newToken = data['token'];
+        
+        // Save new token
+        await TokenService.updateToken(newToken);
+        
+        AppLogger.success("Token refreshed successfully");
+        return newToken;
+      }
+      
+      return null;
+    } catch (e) {
+      AppLogger.error("Token refresh failed", e);
+      return null;
+    }
+  }
+
+  // 🔥 UPDATED UPDATE PROFILE with auto-retry
+  static Future<Map<String, dynamic>?> updateProfile({
+    required String token,
+    required String name,
+    required String email,
+  }) async {
+    try {
+      final url = Uri.parse("$baseUrl/auth/update-profile");
+
+      AppLogger.api("UPDATE PROFILE", url);
+
+      final response = await http.put(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode({"name": name, "email": email}),
+      );
+
+      AppLogger.info("Status: ${response.statusCode}");
+
+      // 🔥 IF TOKEN EXPIRED, REFRESH AND RETRY
+      if (response.statusCode == 401) {
+        AppLogger.info("Token expired, attempting refresh...");
+        
+        final newToken = await refreshToken();
+        
+        if (newToken != null) {
+          // Retry with new token
+          final retryResponse = await http.put(
+            url,
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer $newToken",
+            },
+            body: jsonEncode({"name": name, "email": email}),
+          );
+
+          if (retryResponse.statusCode == 200) {
+            final data = jsonDecode(retryResponse.body);
+            if (data.containsKey('user')) {
+              AppLogger.success("Profile updated successfully (after refresh)");
+              return data['user'];
+            }
+          }
+        }
+        
+        return null;
+      }
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data.containsKey('user')) {
+          AppLogger.success("Profile updated successfully");
+          return data['user'];
+        }
+      }
+
+      return null;
+    } catch (e) {
+      AppLogger.error("Exception in updateProfile", e);
+      return null;
+    }
+  }
+
 }

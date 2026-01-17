@@ -3,7 +3,6 @@ import 'package:demo/data/models/product_model.dart';
 import 'package:demo/data/services/api_service.dart';
 import 'package:demo/data/services/token_service.dart';
 import 'package:demo/widget/feture_item_widget.dart';
-import 'package:demo/widget/product_card_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 

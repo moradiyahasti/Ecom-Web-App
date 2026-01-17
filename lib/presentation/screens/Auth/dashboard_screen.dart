@@ -1,14 +1,18 @@
 import 'dart:async';
+
 import 'package:demo/data/models/product_model.dart';
 import 'package:demo/data/services/api_service.dart';
 import 'package:demo/presentation/screens/Auth/auth.dart';
+import 'package:demo/presentation/screens/Auth/lofin_logout_handler.dart';
 import 'package:demo/presentation/screens/cart/add_to_cart.dart';
 import 'package:demo/presentation/screens/favorite/favorite.dart';
 import 'package:demo/presentation/screens/home/home_screen.dart';
-import 'package:demo/presentation/screens/product/product_details_screen.dart';
 import 'package:demo/presentation/screens/Settings/setting_screen.dart';
+import 'package:demo/data/providers/auth_provider.dart';
 import 'package:demo/data/providers/cart_provider.dart';
+import 'package:demo/data/services/provider.dart';
 import 'package:demo/data/services/token_service.dart';
+import 'package:demo/presentation/screens/product/product_details_screen.dart';
 import 'package:demo/widget/all_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -28,11 +32,9 @@ class _MainLayoutState extends State<MainLayout> {
   late int selectedIndex;
   String name = "";
   String email = "";
-
-  // 🔍 SEARCH VARIABLES
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
-  final LayerLink _layerLink = LayerLink(); // 🔥 For positioning overlay
+  final LayerLink _layerLink = LayerLink();
   OverlayEntry? _overlayEntry;
   List<Product> _searchResults = [];
   bool _isSearching = false;
@@ -61,52 +63,32 @@ class _MainLayoutState extends State<MainLayout> {
       const HomeScreen(),
       const CartScreen(),
       const FavoriteScreen(),
-      const SettingsScreen(),
+      SettingsScreen(),
     ];
     loadUser();
 
+    // 🔥 જો cart tab open થયું હોય તો data load કરો (with AuthProvider)
     if (selectedIndex == 1) {
       Future.microtask(() {
         if (mounted) {
-          context.read<CartProvider>().loadCart(1);
+          final authProvider = context.read<AuthProvider>();
+
+          if (authProvider.userId != null) {
+            context.read<CartProvider>().loadCart(authProvider.userId!);
+          }
         }
       });
     }
-
-    // 🔥 Listen to focus changes
-    _searchFocusNode.addListener(_onFocusChange);
   }
 
-  void _onFocusChange() {
-    if (_searchFocusNode.hasFocus && _searchController.text.isNotEmpty) {
-      _showOverlay();
-    }
+  void _onSearchChanged(String query) {
+    if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
+
+    _searchDebounce = Timer(const Duration(milliseconds: 500), () {
+      _performSearch(query);
+    });
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    _searchFocusNode.dispose();
-    _searchDebounce?.cancel();
-    _removeOverlay();
-    super.dispose();
-  }
-
-  void _changePage(int index) {
-    if (index < 0 || index >= pages.length) return;
-
-    // 🔥 Close search when changing pages
-    _removeOverlay();
-    _searchFocusNode.unfocus();
-
-    setState(() => selectedIndex = index);
-
-    if (index == 1) {
-      context.read<CartProvider>().loadCart(1);
-    }
-  }
-
-  // 🔍 SEARCH FUNCTION
   Future<void> _performSearch(String query) async {
     if (query.trim().isEmpty) {
       setState(() {
@@ -146,14 +128,6 @@ class _MainLayoutState extends State<MainLayout> {
     }
   }
 
-  void _onSearchChanged(String query) {
-    if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
-
-    _searchDebounce = Timer(const Duration(milliseconds: 500), () {
-      _performSearch(query);
-    });
-  }
-
   // 🔥 SHOW OVERLAY
   void _showOverlay() {
     _removeOverlay(); // Remove existing first
@@ -180,13 +154,6 @@ class _MainLayoutState extends State<MainLayout> {
     Overlay.of(context).insert(_overlayEntry!);
   }
 
-  // 🔥 REMOVE OVERLAY
-  void _removeOverlay() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
-  }
-
-  // 📋 SEARCH RESULTS CARD
   Widget _buildSearchResultsCard() {
     return Container(
       decoration: BoxDecoration(
@@ -259,39 +226,6 @@ class _MainLayoutState extends State<MainLayout> {
     );
   }
 
-  // ❌ NO RESULTS
-  Widget _buildNoResults() {
-    return Padding(
-      padding: const EdgeInsets.all(40),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.search_off, size: 50, color: Colors.grey.shade400),
-          const SizedBox(height: 16),
-          Text(
-            _searchErrorMessage,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey.shade700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Try different keywords',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              color: Colors.grey.shade500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 📦 SEARCH RESULT ITEM
   Widget _buildSearchResultItem(Product product) {
     return InkWell(
       onTap: () {
@@ -386,115 +320,196 @@ class _MainLayoutState extends State<MainLayout> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      // 🔥 Tap outside to close search
-      onTap: () {
-        _removeOverlay();
-        _searchFocusNode.unfocus();
-      },
-      child: Scaffold(
-        drawer: isMobile(context) ? Drawer(child: _drawerItems()) : null,
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          surfaceTintColor: Colors.transparent,
-          leading: isMobile(context)
-              ? Builder(
-                  builder: (context) => IconButton(
-                    icon: const Icon(Icons.menu, color: Colors.deepPurple),
-                    onPressed: () => Scaffold.of(context).openDrawer(),
-                  ),
-                )
-              : null,
-          title: isMobile(context)
-              ? CompositedTransformTarget(
-                  link: _layerLink,
-                  child: searchField(
-                    controller: _searchController,
-                    focusNode: _searchFocusNode,
-                    onChanged: _onSearchChanged,
-                    onTap: () {
-                      if (_searchController.text.isNotEmpty) {
-                        _showOverlay();
-                      }
-                    },
-                    isSearching: _isSearching,
-                    showClearButton: _searchController.text.isNotEmpty,
-                    onClear: () {
-                      _searchController.clear();
-                      setState(() {
-                        _searchResults = [];
-                        _searchErrorMessage = '';
-                      });
-                      _removeOverlay();
-                    },
-                  ),
-                )
-              : Row(
-                  children: [
-                    Text(
-                      "Shop Name",
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 18,
-                      ),
-                    ),
-                    const Spacer(),
-                    SizedBox(
-                      width: 350,
-                      child: CompositedTransformTarget(
-                        link: _layerLink,
-                        child: searchField(
-                          controller: _searchController,
-                          focusNode: _searchFocusNode,
-                          onChanged: _onSearchChanged,
-                          onTap: () {
-                            if (_searchController.text.isNotEmpty) {
-                              _showOverlay();
-                            }
-                          },
-                          isSearching: _isSearching,
-                          showClearButton: _searchController.text.isNotEmpty,
-                          onClear: () {
-                            _searchController.clear();
-                            setState(() {
-                              _searchResults = [];
-                              _searchErrorMessage = '';
-                            });
-                            _removeOverlay();
-                          },
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                  ],
-                ),
-          actions: [
-            _appBarIcon(
-              onTap: () => _changePage(2),
-              asset: "assets/favorite.svg",
+  // ❌ NO RESULTS
+  Widget _buildNoResults() {
+    return Padding(
+      padding: const EdgeInsets.all(40),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.search_off, size: 50, color: Colors.grey.shade400),
+          const SizedBox(height: 16),
+          Text(
+            _searchErrorMessage,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade700,
             ),
-            _cartIconWithBadge(),
-            const SizedBox(width: 8),
-          ],
-        ),
-        body: Row(
-          children: [
-            if (!isMobile(context)) SizedBox(width: 250, child: _drawerItems()),
-            Expanded(
-              child: IndexedStack(
-                index: selectedIndex.clamp(0, pages.length - 1),
-                children: pages,
-              ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Try different keywords',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: Colors.grey.shade500,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
+  void _removeOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  /// 🔥 UPDATED PAGE CHANGE - With AuthProvider
+  void _changePage(int index) {
+    if (index < 0 || index >= pages.length) return;
+
+    setState(() => selectedIndex = index);
+
+    // 🔥 Cart tab ખુલ્યે ત્યારે fresh data load કરો (with proper userId)
+    if (index == 1) {
+      final authProvider = context.read<AuthProvider>();
+
+      if (authProvider.userId != null) {
+        context.read<CartProvider>().loadCart(authProvider.userId!);
+      }
+    }
+
+    // 🔥 Favorites tab ખુલ્યે ત્યારે fresh data load કરો
+    if (index == 2) {
+      final authProvider = context.read<AuthProvider>();
+
+      if (authProvider.userId != null) {
+        context.read<FavoritesProvider>().loadFavorites(authProvider.userId!);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      drawer: isMobile(context) ? Drawer(child: _drawerItems()) : null,
+
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+
+        leading: isMobile(context)
+            ? Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.menu, color: Colors.deepPurple),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+              )
+            : null,
+
+        // title: isMobile(context)
+        //     ? searchField()
+        //     : Row(
+        //         children: [
+        //           Text(
+        //             "Shop Name",
+        //             style: GoogleFonts.poppins(
+        //               fontWeight: FontWeight.w600,
+        //               fontSize: 18,
+        //             ),
+        //           ),
+        //           const Spacer(),
+        //           SizedBox(width: 350, child: searchField()),
+        //           const Spacer(),
+        //         ],
+        //       ),
+        title: isMobile(context)
+            ? CompositedTransformTarget(
+                link: _layerLink,
+                child: searchField(
+                  controller: _searchController,
+                  focusNode: _searchFocusNode,
+                  onChanged: _onSearchChanged,
+                  onTap: () {
+                    if (_searchController.text.isNotEmpty) {
+                      _showOverlay();
+                    }
+                  },
+                  isSearching: _isSearching,
+                  showClearButton: _searchController.text.isNotEmpty,
+                  onClear: () {
+                    _searchController.clear();
+                    setState(() {
+                      _searchResults = [];
+                      _searchErrorMessage = '';
+                    });
+                    _removeOverlay();
+                  },
+                ),
+              )
+            : Row(
+                children: [
+                  Text(
+                    "Shop Name",
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 18,
+                    ),
+                  ),
+                  const Spacer(),
+                  SizedBox(
+                    width: 350,
+                    child: CompositedTransformTarget(
+                      link: _layerLink,
+                      child: searchField(
+                        controller: _searchController,
+                        focusNode: _searchFocusNode,
+                        onChanged: _onSearchChanged,
+                        onTap: () {
+                          if (_searchController.text.isNotEmpty) {
+                            _showOverlay();
+                          }
+                        },
+                        isSearching: _isSearching,
+                        showClearButton: _searchController.text.isNotEmpty,
+                        onClear: () {
+                          _searchController.clear();
+                          setState(() {
+                            _searchResults = [];
+                            _searchErrorMessage = '';
+                          });
+                          _removeOverlay();
+                        },
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                ],
+              ),
+
+        actions: [
+          _appBarIcon(
+            onTap: () => _changePage(2),
+            asset: "assets/favorite.svg",
+          ),
+
+          // 🔥 Cart Icon with Badge
+          _cartIconWithBadge(),
+
+          const SizedBox(width: 8),
+        ],
+      ),
+
+      body: Row(
+        children: [
+          if (!isMobile(context)) SizedBox(width: 250, child: _drawerItems()),
+
+          Expanded(
+            child: IndexedStack(
+              index: selectedIndex.clamp(0, pages.length - 1),
+              children: pages,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🛒 CART ICON WITH BADGE
   Widget _cartIconWithBadge() {
     return Consumer<CartProvider>(
       builder: (context, cartProvider, child) {
@@ -507,6 +522,8 @@ class _MainLayoutState extends State<MainLayout> {
               onTap: () => _changePage(1),
               asset: "assets/add-to-cart (1).svg",
             ),
+
+            // 🔥 Badge
             if (itemCount > 0)
               Positioned(
                 right: 6,
@@ -540,17 +557,20 @@ class _MainLayoutState extends State<MainLayout> {
     );
   }
 
+  // ================= DRAWER =================
+
   Widget _drawerItems() {
     return Container(
       color: const Color(0xffF8F9FF),
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
+          // ===== HEADER =====
           InkWell(
             onTap: () async {
               await Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                MaterialPageRoute(builder: (_) => SettingsScreen()),
               );
               loadUser();
             },
@@ -580,17 +600,21 @@ class _MainLayoutState extends State<MainLayout> {
               ),
             ),
           ),
+
           const SizedBox(height: 12),
+
           _menuItem("Home", Icons.home_rounded, 0),
           _menuItemWithBadge("Cart", Icons.shopping_cart_rounded, 1),
           _menuItem("Favorites", Icons.favorite_rounded, 2),
           _menuItem("Settings", Icons.settings_rounded, 3),
+
           _menuItem("Logout", Icons.logout_rounded, -1),
         ],
       ),
     );
   }
 
+  // 🛒 MENU ITEM WITH CART BADGE
   Widget _menuItemWithBadge(String title, IconData icon, int index) {
     bool selected = selectedIndex == index;
 
@@ -630,6 +654,8 @@ class _MainLayoutState extends State<MainLayout> {
                       size: 22,
                       color: selected ? Colors.white : Colors.deepPurple,
                     ),
+
+                    // 🔥 Badge
                     if (itemCount > 0)
                       Positioned(
                         right: -6,
@@ -673,6 +699,8 @@ class _MainLayoutState extends State<MainLayout> {
                     color: selected ? Colors.white : Colors.deepPurple,
                   ),
                 ),
+
+                // 🔥 Badge (alternative - right side)
                 if (itemCount > 0) ...[
                   const Spacer(),
                   Container(
@@ -708,8 +736,11 @@ class _MainLayoutState extends State<MainLayout> {
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: () async {
+        // 🔥 LOGOUT - With proper cleanup
         if (index == -1) {
-          await TokenService.clearAll();
+          // 🔥 Use handleLogout helper
+          await handleLogout(context: context);
+
           if (!mounted) return;
 
           ScaffoldMessenger.of(context).showSnackBar(
@@ -751,16 +782,20 @@ class _MainLayoutState extends State<MainLayout> {
 
           await Future.delayed(const Duration(milliseconds: 600));
 
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (_) => AuthScreen(key: UniqueKey())),
-            (route) => false,
-          );
+          if (mounted) {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => AuthScreen(key: UniqueKey())),
+              (route) => false,
+            );
+          }
           return;
         }
 
+        // ✅ NORMAL MENU NAVIGATION
         _changePage(index);
 
+        // 📱 Mobile ma drawer close
         if (isMobile(context)) {
           Navigator.pop(context);
         }
@@ -800,6 +835,8 @@ class _MainLayoutState extends State<MainLayout> {
       ),
     );
   }
+
+  // ================= APP BAR ICON =================
 
   Widget _appBarIcon({required VoidCallback onTap, required String asset}) {
     return IconButton(

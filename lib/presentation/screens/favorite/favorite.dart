@@ -1,6 +1,8 @@
 import 'package:demo/data/models/product_model.dart';
+import 'package:demo/data/providers/auth_provider.dart';
 import 'package:demo/data/providers/cart_provider.dart';
 import 'package:demo/data/services/provider.dart';
+import 'package:demo/utils/snackbar_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -46,10 +48,14 @@ class _FavoriteScreenState extends State<FavoriteScreen>
 
     _headerController!.forward();
 
-    // 🔥 LOAD FAVORITES on init
+    // 🔥 LOAD FAVORITES - Use AuthProvider for userId
     Future.microtask(() {
       if (mounted) {
-        context.read<FavoritesProvider>().loadFavorites(1);
+        final authProvider = context.read<AuthProvider>();
+
+        if (authProvider.isLoggedIn && authProvider.userId != null) {
+          context.read<FavoritesProvider>().loadFavorites(authProvider.userId!);
+        }
       }
     });
   }
@@ -91,13 +97,12 @@ class _FavoriteScreenState extends State<FavoriteScreen>
 
   @override
   Widget build(BuildContext context) {
-    // 🔥 WATCH FAVORITES PROVIDER
     final favProvider = context.watch<FavoritesProvider>();
+    final authProvider = context.watch<AuthProvider>();
 
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          // Premium Animated App Bar
           SliverAppBar(
             expandedHeight: 160,
             floating: false,
@@ -106,7 +111,6 @@ class _FavoriteScreenState extends State<FavoriteScreen>
             flexibleSpace: FlexibleSpaceBar(
               background: Stack(
                 children: [
-                  // Gradient Background
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -121,10 +125,8 @@ class _FavoriteScreenState extends State<FavoriteScreen>
                     ),
                   ),
 
-                  // Animated Circles
                   ..._buildFloatingCircles(),
 
-                  // Content
                   SafeArea(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -178,7 +180,6 @@ class _FavoriteScreenState extends State<FavoriteScreen>
                           ),
                           const SizedBox(height: 20),
 
-                          // Stats Row
                           if (favProvider.favorites.isNotEmpty)
                             FadeTransition(
                               opacity:
@@ -210,7 +211,6 @@ class _FavoriteScreenState extends State<FavoriteScreen>
             ),
           ),
 
-          // Content
           SliverToBoxAdapter(
             child: Container(
               decoration: BoxDecoration(
@@ -223,7 +223,7 @@ class _FavoriteScreenState extends State<FavoriteScreen>
                   ? _buildLoading()
                   : favProvider.favorites.isEmpty
                   ? _buildEmptyState()
-                  : _buildGridView(favProvider),
+                  : _buildGridView(favProvider, authProvider),
             ),
           ),
         ],
@@ -428,7 +428,6 @@ class _FavoriteScreenState extends State<FavoriteScreen>
                 const SizedBox(height: 32),
                 InkWell(
                   onTap: () {
-                    // Navigate to home/products
                     Navigator.pop(context);
                   },
                   child: Container(
@@ -481,66 +480,10 @@ class _FavoriteScreenState extends State<FavoriteScreen>
     );
   }
 
-  /*  Widget _buildGridView(FavoritesProvider favProvider) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: favProvider.favorites.length,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.68,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-        ),
-        itemBuilder: (context, index) {
-          final product = favProvider.favorites[index]; // ✅ એક વખત લો
-
-          return _AnimatedProductCard(
-            product: product,
-            index: index,
-            // 🔥 REMOVE FAVORITE - Provider સાથે
-            onRemove: () async {
-              await context.read<FavoritesProvider>().toggleFavorite(
-                1,
-                product,
-              );
-
-              if (mounted) {
-                _showCustomSnackBar(
-                  title: "Removed!",
-                  message: "${product.title} removed from favorites",
-                  isSuccess: false,
-                );
-              }
-            },
-            // 🔥 ADD TO CART - Provider સાથે
-            onAddToCart: (product) async {
-              await context.read<CartProvider>().addToCart(
-                userId: 1,
-                productId: product.id,
-                quantity: 1,
-              );
-
-              if (mounted) {
-                _showCustomSnackBar(
-                  title: "Added to Cart!",
-                  message: product.title,
-                  isSuccess: true,
-                  onAction: () {
-                    // Navigate to cart if needed
-                  },
-                );
-              }
-            },
-          );
-        },
-      ),
-    );
-  } */
-
-  Widget _buildGridView(FavoritesProvider favProvider) {
+  Widget _buildGridView(
+    FavoritesProvider favProvider,
+    AuthProvider authProvider,
+  ) {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: LayoutBuilder(
@@ -548,11 +491,11 @@ class _FavoriteScreenState extends State<FavoriteScreen>
           int crossAxisCount = 2;
 
           if (constraints.maxWidth >= 1200) {
-            crossAxisCount = 4; // Desktop
+            crossAxisCount = 4;
           } else if (constraints.maxWidth >= 800) {
-            crossAxisCount = 3; // Tablet / Small desktop
+            crossAxisCount = 3;
           } else {
-            crossAxisCount = 2; // Mobile
+            crossAxisCount = 2;
           }
 
           return GridView.builder(
@@ -572,17 +515,50 @@ class _FavoriteScreenState extends State<FavoriteScreen>
                 product: product,
                 index: index,
                 onRemove: () async {
-                  await context.read<FavoritesProvider>().toggleFavorite(
-                    1,
-                    product,
-                  );
+                  // 🔥 Get AuthProvider
+                  final authProvider = context.read<AuthProvider>();
+
+                  if (authProvider.userId != null) {
+                    await context.read<FavoritesProvider>().toggleFavorite(
+                      authProvider.userId!, // 🔥 DYNAMIC
+                      product,
+                    );
+
+                    if (mounted) {
+                      SnackbarService.show(
+                        context: context,
+                        title: "Removed!",
+                        message: "${product.title} removed from favorites",
+                        isSuccess: false,
+                      );
+                    }
+                  }
                 },
                 onAddToCart: (product) async {
-                  await context.read<CartProvider>().addToCart(
-                    userId: 1,
-                    productId: product.id,
-                    quantity: 1,
-                  );
+                  // 🔥 Get AuthProvider
+                  final authProvider = context.read<AuthProvider>();
+
+                  if (authProvider.userId != null) {
+                    await context.read<CartProvider>().addToCart(
+                      userId: authProvider.userId!, // 🔥 DYNAMIC
+                      productId: product.id,
+                      quantity: 1,
+                    );
+
+                    if (mounted) {
+                      SnackbarService.show(
+                        context: context,
+                        title: "Added to Cart!",
+                        message: product.title,
+                        isSuccess: true,
+                        actionText: "VIEW CART",
+                        onAction: () {
+                          // Navigate to cart screen
+                          // Navigator.pushNamed(context, '/cart');
+                        },
+                      );
+                    }
+                  }
                 },
               );
             },
@@ -593,7 +569,6 @@ class _FavoriteScreenState extends State<FavoriteScreen>
   }
 }
 
-// 🎨 Custom Snackbar Widget
 class _CustomSnackBar extends StatefulWidget {
   final String title;
   final String message;
@@ -719,24 +694,6 @@ class _CustomSnackBarState extends State<_CustomSnackBar>
                       ],
                     ),
                   ),
-                  if (widget.onAction != null)
-                    TextButton(
-                      onPressed: widget.onAction,
-                      style: TextButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.2),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: Text(
-                        "VIEW",
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -747,12 +704,11 @@ class _CustomSnackBarState extends State<_CustomSnackBar>
   }
 }
 
-// 🎨 Animated Product Card Widget
 class _AnimatedProductCard extends StatefulWidget {
-  final Product product; // 🔥 Proper type
+  final Product product;
   final int index;
   final VoidCallback onRemove;
-  final Function(Product) onAddToCart; // 🔥 Proper type
+  final Function(Product) onAddToCart;
 
   const _AnimatedProductCard({
     required this.product,
@@ -802,6 +758,10 @@ class _AnimatedProductCardState extends State<_AnimatedProductCard>
 
   @override
   Widget build(BuildContext context) {
+    final cartProvider = context.watch<CartProvider>();
+    final cartQuantity = cartProvider.getQuantity(widget.product.id);
+    final authProvider = context.watch<AuthProvider>();
+
     return SlideTransition(
       position: _slideAnimation,
       child: ScaleTransition(
@@ -877,43 +837,177 @@ class _AnimatedProductCardState extends State<_AnimatedProductCard>
                       ],
                     ),
                   ),
-                  Expanded(
-                    flex: 2,
-                    child: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.product.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                              height: 1.3,
+                  Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.product.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            height: 1.3,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          "₹${widget.product.price.toInt()}",
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Colors.deepPurple,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+
+                        // 🔥 QUANTITY COUNTER OR ADD TO CART BUTTON
+                        if (cartQuantity == 0)
+                          // ADD TO CART BUTTON
+                          SizedBox(
+                            width: double.infinity,
+                            height: 36,
+                            child: ElevatedButton(
+                              onPressed: () async {
+                                if (authProvider.userId != null) {
+                                  await cartProvider.addToCart(
+                                    userId: authProvider.userId!,
+                                    productId: widget.product.id,
+                                    quantity: 1,
+                                  );
+
+                                  if (context.mounted) {
+                                    SnackbarService.show(
+                                      context: context,
+                                      title: "Added to Cart!",
+                                      message: widget.product.title,
+                                      isSuccess: true,
+                                    );
+                                  }
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.deepPurple,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                padding: EdgeInsets.zero,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.shopping_cart_outlined,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Add to Cart',
+                                    style: GoogleFonts.poppins(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
+                          // QUANTITY COUNTER
+                          Container(
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: Colors.deepPurple.shade50,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: Colors.deepPurple.shade200,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                // DECREMENT BUTTON
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () async {
+                                      if (authProvider.userId != null) {
+                                        await cartProvider.decrementQuantity(
+                                          authProvider.userId!,
+                                          widget.product.id,
+                                        );
+                                      }
+                                    },
+                                    borderRadius: const BorderRadius.only(
+                                      topLeft: Radius.circular(10),
+                                      bottomLeft: Radius.circular(10),
+                                    ),
+                                    child: Container(
+                                      width: 36,
+                                      height: 36,
+                                      alignment: Alignment.center,
+                                      child: Icon(
+                                        Icons.remove,
+                                        size: 16,
+                                        color: Colors.deepPurple.shade700,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+
+                                // QUANTITY DISPLAY
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
+                                  child: Text(
+                                    cartQuantity.toString(),
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.deepPurple.shade700,
+                                    ),
+                                  ),
+                                ),
+
+                                // INCREMENT BUTTON
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () async {
+                                      if (authProvider.userId != null) {
+                                        await cartProvider.incrementQuantity(
+                                          authProvider.userId!,
+                                          widget.product.id,
+                                        );
+                                      }
+                                    },
+                                    borderRadius: const BorderRadius.only(
+                                      topRight: Radius.circular(10),
+                                      bottomRight: Radius.circular(10),
+                                    ),
+                                    child: Container(
+                                      width: 36,
+                                      height: 36,
+                                      alignment: Alignment.center,
+                                      child: Icon(
+                                        Icons.add,
+                                        size: 16,
+                                        color: Colors.deepPurple.shade700,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const Spacer(),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                "₹${widget.product.price.toInt()}",
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                  color: Colors.deepPurple,
-                                ),
-                              ),
-                              _AnimatedCartButton(
-                                onPressed: () =>
-                                    widget.onAddToCart(widget.product),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
                   ),
                 ],
@@ -926,7 +1020,6 @@ class _AnimatedProductCardState extends State<_AnimatedProductCard>
   }
 }
 
-// 💖 Animated Favorite Button
 class _AnimatedFavoriteButton extends StatefulWidget {
   final VoidCallback onPressed;
 
@@ -990,7 +1083,6 @@ class _AnimatedFavoriteButtonState extends State<_AnimatedFavoriteButton>
   }
 }
 
-// 🛒 Animated Cart Button
 class _AnimatedCartButton extends StatefulWidget {
   final VoidCallback onPressed;
 
