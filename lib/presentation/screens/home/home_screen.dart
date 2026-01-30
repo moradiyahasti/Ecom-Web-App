@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+import 'dart:math' as math;
 import 'package:demo/data/models/product_model.dart';
 import 'package:demo/data/providers/auth_provider.dart';
 import 'package:demo/data/services/api_service.dart';
@@ -302,7 +303,10 @@ class _HomeScreenState extends State<HomeScreen>
                     const SizedBox(height: 5),
                     _buildProductsGrid(),
                     const SizedBox(height: 25),
-                    _buildBannerCards(),
+                    // _buildBannerCards(),
+                    _buildPremiumHeader(),
+                    const SizedBox(height: 20),
+                    _buildPremiumNailsCarousel(),
                     const SizedBox(height: 25),
 
                     featuresSection(),
@@ -322,6 +326,232 @@ class _HomeScreenState extends State<HomeScreen>
         ),
       ),
     );
+  }
+
+  Widget _buildPremiumHeader() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.deepPurple.shade50,
+            Colors.pink.shade50,
+            Colors.purple.shade50,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.deepPurple.withOpacity(0.15),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // ✨ Sparkle Animation
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: const Duration(milliseconds: 1200),
+            curve: Curves.elasticOut,
+            builder: (context, value, child) {
+              return Transform.scale(
+                scale: value,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildSparkle(Colors.pink.shade300, 0.0),
+                    const SizedBox(width: 8),
+                    Text("💅", style: TextStyle(fontSize: 36 * value)),
+                    const SizedBox(width: 8),
+                    _buildSparkle(Colors.purple.shade300, 0.5),
+                  ],
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 16),
+
+          // 🎯 Main Title
+          ShaderMask(
+            shaderCallback: (bounds) => LinearGradient(
+              colors: [
+                Colors.deepPurple.shade700,
+                Colors.pink.shade400,
+                Colors.purple.shade600,
+              ],
+            ).createShader(bounds),
+            child: Text(
+              "Premium Collection",
+              textAlign: TextAlign.center,
+              style: GoogleFonts.playfairDisplay(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // 💫 Subtitle with animation
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: const Duration(milliseconds: 800),
+            curve: Curves.easeOut,
+            builder: (context, value, child) {
+              return Opacity(
+                opacity: value,
+                child: Transform.translate(
+                  offset: Offset(0, 20 * (1 - value)),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        height: 1,
+                        width: 40,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.transparent,
+                              Colors.deepPurple.shade300,
+                            ],
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Text(
+                          "Luxury Nail Art & Polish",
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: Colors.deepPurple.shade700,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        height: 1,
+                        width: 40,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.deepPurple.shade300,
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 16),
+
+          // 🏷️ Feature Tags
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildFeatureTag("✨", "Long Lasting"),
+              _buildFeatureTag("💎", "Premium Quality"),
+              _buildFeatureTag("🌈", "50+ Colors"),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSparkle(Color color, double delay) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 1000),
+      curve: Curves.easeOut,
+      builder: (context, value, child) {
+        return Transform.rotate(
+          angle: value * 6.28, // Full rotation
+          child: Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  color.withOpacity(0.8),
+                  color.withOpacity(0.3),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+            child: Icon(Icons.star, size: 16, color: color),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFeatureTag(String emoji, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.deepPurple.shade200, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.deepPurple.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 14)),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Colors.deepPurple.shade800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPremiumNailsCarousel() {
+    if (loading) {
+      return const Padding(
+        padding: EdgeInsets.all(30),
+        child: CircularProgressIndicator(
+          strokeWidth: 3,
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.deepPurple),
+        ),
+      );
+    }
+
+    if (products.isEmpty) {
+      return _buildEmptyState();
+    }
+
+    return _PremiumNailsCarousel(products: products);
   }
 
   Widget _buildSearchResults() {
@@ -1060,3 +1290,621 @@ class _CustomSnackBarState extends State<_CustomSnackBar>
     );
   }
 }
+
+class _PremiumNailsCarousel extends StatefulWidget {
+  final List<Product> products;
+
+  const _PremiumNailsCarousel({required this.products});
+
+  @override
+  State<_PremiumNailsCarousel> createState() => _PremiumNailsCarouselState();
+}
+
+class _PremiumNailsCarouselState extends State<_PremiumNailsCarousel>
+    with TickerProviderStateMixin {
+  late PageController _pageController;
+  int _currentPage = 0;
+  late AnimationController _shimmerController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 0.85);
+    _pageController.addListener(() {
+      setState(() {
+        _currentPage = _pageController.page?.round() ?? 0;
+      });
+    });
+
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _shimmerController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // 🎯 Carousel
+        SizedBox(
+          height: 520,
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: widget.products.length,
+            itemBuilder: (context, index) {
+              return _buildCarouselCard(widget.products[index], index);
+            },
+          ),
+        ),
+
+        const SizedBox(height: 24),
+
+        // 📍 Page Indicators
+        _buildPageIndicators(),
+
+        const SizedBox(height: 16),
+
+        // 🔥 Quick View Row (horizontal list of upcoming products)
+        _buildQuickViewRow(),
+      ],
+    );
+  }
+
+  Widget _buildCarouselCard(Product product, int index) {
+    final isActive = index == _currentPage;
+    final scale = isActive ? 1.0 : 0.85;
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.85, end: scale),
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Transform.scale(
+          scale: value,
+          child: Opacity(
+            opacity: isActive ? 1.0 : 0.6,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.deepPurple.withOpacity(isActive ? 0.3 : 0.1),
+                    blurRadius: isActive ? 30 : 15,
+                    offset: Offset(0, isActive ? 15 : 8),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(30),
+                child: _buildProductCard(product, isActive),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildProductCard(Product product, bool isActive) {
+    return GestureDetector(
+      onTap: () => _navigateToDetails(product),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.white, Colors.purple.shade50, Colors.pink.shade50],
+          ),
+        ),
+        child: Stack(
+          children: [
+            // ✨ Shimmer Effect
+            if (isActive) _buildShimmerEffect(),
+
+            // 🖼️ Product Image
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 300,
+              child: Hero(
+                tag: 'product_${product.id}',
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.deepPurple.shade100, Colors.transparent],
+                    ),
+                  ),
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: Image.network(
+                          product.image,
+                          height: 280,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => Icon(
+                            Icons.image,
+                            size: 100,
+                            color: Colors.grey.shade300,
+                          ),
+                        ),
+                      ),
+
+                      // 💎 Badge
+                      // if (product.discount != null && product.discount! > 0)
+                      //   Positioned(
+                      //     top: 16,
+                      //     right: 16,
+                      //     child: _buildDiscountBadge(product.discount!),
+                      //   ),
+                      if (80 != null && 60! > 0)
+                        Positioned(
+                          top: 16,
+                          right: 16,
+                          child: _buildDiscountBadge(50!),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // 📝 Product Details
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withOpacity(0),
+                      Colors.white,
+                      Colors.white,
+                    ],
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ⭐ Rating
+                    Row(
+                      children: [
+                        ...List.generate(5, (index) {
+                          return Icon(
+                            index < (product.rating ?? 4)
+                                ? Icons.star_rounded
+                                : Icons.star_outline_rounded,
+                            color: Colors.amber.shade600,
+                            size: 20,
+                          );
+                        }),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${product.rating ?? 4.5} (${product.reviews})',
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // 📌 Product Name
+                    Text(
+                      product.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                        height: 1.2,
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // 💰 Price Section
+                    Row(
+                      children: [
+                        Text(
+                          '₹${product.price}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.deepPurple,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          '₹${product.oldPrice}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            color: Colors.grey.shade500,
+                            decoration: TextDecoration.lineThrough,
+                          ),
+                        ),
+                        const Spacer(),
+
+                        // 🛒 Add to Cart Button
+                        // Container(
+                        //   padding: const EdgeInsets.all(12),
+                        //   decoration: BoxDecoration(
+                        //     gradient: LinearGradient(
+                        //       colors: [
+                        //         Colors.deepPurple,
+                        //         Colors.purple.shade700,
+                        //       ],
+                        //     ),
+                        //     borderRadius: BorderRadius.circular(16),
+                        //     boxShadow: [
+                        //       BoxShadow(
+                        //         color: Colors.deepPurple.withOpacity(0.4),
+                        //         blurRadius: 12,
+                        //         offset: const Offset(0, 6),
+                        //       ),
+                        //     ],
+                        //   ),
+                        //   child: const Icon(
+                        //     Icons.shopping_cart_rounded,
+                        //     color: Colors.white,
+                        //     size: 26,
+                        //   ),
+                        // ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ❤️ Favorite Button
+            /*             Positioned(
+              top: 16,
+              left: 16,
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.favorite_border_rounded,
+                  color: Colors.red.shade400,
+                  size: 22,
+                ),
+              ),
+            ),
+          */
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShimmerEffect() {
+    return AnimatedBuilder(
+      animation: _shimmerController,
+      builder: (context, child) {
+        return Positioned.fill(
+          child: Transform.translate(
+            offset: Offset(300 * _shimmerController.value - 150, 0),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    Colors.transparent,
+                    Colors.white.withOpacity(0.2),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDiscountBadge(int discount) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.red.shade500, Colors.red.shade700],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.red.withOpacity(0.4),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Text(
+        '$discount% OFF',
+        style: GoogleFonts.poppins(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPageIndicators() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(widget.products.length, (index) {
+        final isActive = index == _currentPage;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          width: isActive ? 32 : 8,
+          height: 8,
+          decoration: BoxDecoration(
+            gradient: isActive
+                ? LinearGradient(
+                    colors: [Colors.deepPurple, Colors.purple.shade700],
+                  )
+                : null,
+            color: isActive ? null : Colors.grey.shade300,
+            borderRadius: BorderRadius.circular(4),
+            boxShadow: isActive
+                ? [
+                    BoxShadow(
+                      color: Colors.deepPurple.withOpacity(0.4),
+                      blurRadius: 6,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                : null,
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildQuickViewRow() {
+    return Container(
+      height: 100,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: widget.products.length,
+        itemBuilder: (context, index) {
+          final product = widget.products[index];
+          final isSelected = index == _currentPage;
+
+          return GestureDetector(
+            onTap: () {
+              _pageController.animateToPage(
+                index,
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOutCubic,
+              );
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              width: isSelected ? 90 : 70,
+              margin: const EdgeInsets.only(right: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isSelected ? Colors.deepPurple : Colors.grey.shade300,
+                  width: isSelected ? 3 : 1.5,
+                ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: Colors.deepPurple.withOpacity(0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  color: Colors.grey.shade100,
+                  child: Image.network(
+                    product.image,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) =>
+                        Icon(Icons.image, color: Colors.grey.shade400),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _navigateToDetails(Product product) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EnhancedNailProductDetails(
+          productId: product.id,
+          title: product.title,
+          mainImage: product.image,
+          productImages: product.productImages.isNotEmpty
+              ? product.productImages
+              : [product.image, product.image, product.image],
+          oldPrice: product.oldPrice,
+          review: product.reviews,
+          price: product.price,
+        ),
+      ),
+    );
+  }
+}
+
+// 🎯 ALTERNATIVE: 3D CAROUSEL (Optional Premium Effect)
+class _Premium3DCarousel extends StatefulWidget {
+  final List<Product> products;
+
+  const _Premium3DCarousel({required this.products});
+
+  @override
+  State<_Premium3DCarousel> createState() => _Premium3DCarouselState();
+}
+
+class _Premium3DCarouselState extends State<_Premium3DCarousel> {
+  late PageController _pageController;
+  double _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 0.8);
+    _pageController.addListener(() {
+      setState(() {
+        _currentPage = _pageController.page ?? 0;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 450,
+      child: PageView.builder(
+        controller: _pageController,
+        itemCount: widget.products.length,
+        itemBuilder: (context, index) {
+          final offset = (_currentPage - index).abs();
+          final scale = math.max(0.8, 1 - (offset * 0.2));
+          final rotationY = (index - _currentPage) * 0.3;
+
+          return Transform(
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.001)
+              ..rotateY(rotationY)
+              ..scale(scale),
+            alignment: Alignment.center,
+            child: _build3DCard(widget.products[index]),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _build3DCard(Product product) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.white, Colors.purple.shade50],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.deepPurple.withOpacity(0.3),
+            blurRadius: 30,
+            offset: const Offset(0, 15),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: Stack(
+          children: [
+            // Product Image
+            Center(
+              child: Image.network(
+                product.image,
+                height: 250,
+                fit: BoxFit.contain,
+              ),
+            ),
+
+            // Product Info
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.white],
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      product.title,
+                      maxLines: 2,
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '₹${product.price}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.deepPurple,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+}
+
+// 📝 USAGE IN HomeScreen:
+// Replace: _buildProductsGrid()
+// With: _buildPremiumNailsCarousel()
+// Or: _Premium3DCarousel(products: products)

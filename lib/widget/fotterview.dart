@@ -47,7 +47,7 @@ class _ContactFormSectionState extends State<ContactFormSection> {
   bool _isSubmitting = false;
 
   // 🔥 YOUR API ENDPOINT
-  static const String API_URL = 'http://192.168.1.25:5000/api/contact';
+  static const String API_URL = 'http://192.168.29.212:5000/api/contact';
 
   @override
   void initState() {
@@ -296,7 +296,7 @@ class _ContactFormSectionState extends State<ContactFormSection> {
         const Text(
           'તમારો સંપર્ક,\nઅમારો આનંદ',
           style: TextStyle(
-            fontSize: 42,
+            fontSize: 38,
             fontWeight: FontWeight.bold,
             height: 1.2,
             color: Colors.black87,
@@ -304,13 +304,13 @@ class _ContactFormSectionState extends State<ContactFormSection> {
         ),
         const SizedBox(height: 20),
         Text(
-  'તમને કોઈપણ પ્રશ્ન હોય અથવા માર્ગદર્શનની જરૂર હોય તો કૃપા કરીને અમને સંદેશ મોકલો. અમારી ટીમ શક્ય તેટલી વહેલી તકે આપને પ્રતિસાદ આપશે.',
-  style: TextStyle(
-    fontSize: 16,
-    height: 1.7,
-    color: Colors.grey.shade700,
-  ),
-),
+          'તમને કોઈપણ પ્રશ્ન હોય અથવા માર્ગદર્શનની જરૂર હોય તો કૃપા કરીને અમને સંદેશ મોકલો. અમારી ટીમ શક્ય તેટલી વહેલી તકે આપને પ્રતિસાદ આપશે.',
+          style: TextStyle(
+            fontSize: 16,
+            height: 1.7,
+            color: Colors.grey.shade700,
+          ),
+        ),
 
         const SizedBox(height: 30),
         _infoCard(
@@ -526,7 +526,10 @@ class _ContactFormSectionState extends State<ContactFormSection> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.deepPurple.shade300, width: 2),
+              borderSide: BorderSide(
+                color: Colors.deepPurple.shade300,
+                width: 2,
+              ),
             ),
             disabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),

@@ -1,3 +1,4 @@
+
 class CartItem {
   final int cartId;
   final int productId;
@@ -53,5 +54,19 @@ class CartItem {
       image: image ?? this.image,
       quantity: quantity ?? this.quantity,
     );
+  }
+
+  // 🔥 ADDED: toJson method
+  Map<String, dynamic> toJson() {
+    return {
+      'cart_id': cartId,
+      'product_id': productId,
+      'title': title,
+      'subtitle': subtitle,
+      'price': price,
+      'old_price': oldPrice,
+      'image': image,
+      'quantity': quantity,
+    };
   }
 }

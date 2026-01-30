@@ -4,6 +4,7 @@ import 'package:demo/data/models/product_model.dart';
 import 'package:demo/data/services/api_service.dart';
 import 'package:demo/presentation/screens/Auth/auth.dart';
 import 'package:demo/presentation/screens/Auth/lofin_logout_handler.dart';
+import 'package:demo/presentation/screens/Auth/user_dashboard_screen.dart';
 import 'package:demo/presentation/screens/cart/add_to_cart.dart';
 import 'package:demo/presentation/screens/favorite/favorite.dart';
 import 'package:demo/presentation/screens/home/home_screen.dart';
@@ -63,11 +64,12 @@ class _MainLayoutState extends State<MainLayout> {
       const HomeScreen(),
       const CartScreen(),
       const FavoriteScreen(),
+      const UserDashboardScreen(), // 🔥 NEW DASHBOARD
       SettingsScreen(),
     ];
     loadUser();
 
-    // 🔥 જો cart tab open થયું હોય તો data load કરો (with AuthProvider)
+    // Load cart if cart tab is open
     if (selectedIndex == 1) {
       Future.microtask(() {
         if (mounted) {
@@ -116,7 +118,6 @@ class _MainLayoutState extends State<MainLayout> {
         }
       });
 
-      // 🔥 Show overlay with results
       _showOverlay();
     } catch (e) {
       setState(() {
@@ -128,9 +129,8 @@ class _MainLayoutState extends State<MainLayout> {
     }
   }
 
-  // 🔥 SHOW OVERLAY
   void _showOverlay() {
-    _removeOverlay(); // Remove existing first
+    _removeOverlay();
 
     _overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
@@ -140,7 +140,7 @@ class _MainLayoutState extends State<MainLayout> {
           showWhenUnlinked: false,
           offset: Offset(
             isMobile(context) ? 16 : 0,
-            isMobile(context) ? 60 : 55, // Below AppBar
+            isMobile(context) ? 60 : 55,
           ),
           child: Material(
             elevation: 8,
@@ -172,7 +172,6 @@ class _MainLayoutState extends State<MainLayout> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // HEADER
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
@@ -207,8 +206,6 @@ class _MainLayoutState extends State<MainLayout> {
               ],
             ),
           ),
-
-          // RESULTS
           Flexible(
             child: _searchErrorMessage.isNotEmpty
                 ? _buildNoResults()
@@ -320,7 +317,6 @@ class _MainLayoutState extends State<MainLayout> {
     );
   }
 
-  // ❌ NO RESULTS
   Widget _buildNoResults() {
     return Padding(
       padding: const EdgeInsets.all(40),
@@ -357,13 +353,12 @@ class _MainLayoutState extends State<MainLayout> {
     _overlayEntry = null;
   }
 
-  /// 🔥 UPDATED PAGE CHANGE - With AuthProvider
   void _changePage(int index) {
     if (index < 0 || index >= pages.length) return;
 
     setState(() => selectedIndex = index);
 
-    // 🔥 Cart tab ખુલ્યે ત્યારે fresh data load કરો (with proper userId)
+    // Load cart data when cart tab opens
     if (index == 1) {
       final authProvider = context.read<AuthProvider>();
 
@@ -372,7 +367,7 @@ class _MainLayoutState extends State<MainLayout> {
       }
     }
 
-    // 🔥 Favorites tab ખુલ્યે ત્યારે fresh data load કરો
+    // Load favorites data when favorites tab opens
     if (index == 2) {
       final authProvider = context.read<AuthProvider>();
 
@@ -401,22 +396,6 @@ class _MainLayoutState extends State<MainLayout> {
               )
             : null,
 
-        // title: isMobile(context)
-        //     ? searchField()
-        //     : Row(
-        //         children: [
-        //           Text(
-        //             "Shop Name",
-        //             style: GoogleFonts.poppins(
-        //               fontWeight: FontWeight.w600,
-        //               fontSize: 18,
-        //             ),
-        //           ),
-        //           const Spacer(),
-        //           SizedBox(width: 350, child: searchField()),
-        //           const Spacer(),
-        //         ],
-        //       ),
         title: isMobile(context)
             ? CompositedTransformTarget(
                 link: _layerLink,
@@ -487,7 +466,6 @@ class _MainLayoutState extends State<MainLayout> {
             asset: "assets/favorite.svg",
           ),
 
-          // 🔥 Cart Icon with Badge
           _cartIconWithBadge(),
 
           const SizedBox(width: 8),
@@ -509,7 +487,6 @@ class _MainLayoutState extends State<MainLayout> {
     );
   }
 
-  // 🛒 CART ICON WITH BADGE
   Widget _cartIconWithBadge() {
     return Consumer<CartProvider>(
       builder: (context, cartProvider, child) {
@@ -523,7 +500,6 @@ class _MainLayoutState extends State<MainLayout> {
               asset: "assets/add-to-cart (1).svg",
             ),
 
-            // 🔥 Badge
             if (itemCount > 0)
               Positioned(
                 right: 6,
@@ -557,15 +533,13 @@ class _MainLayoutState extends State<MainLayout> {
     );
   }
 
-  // ================= DRAWER =================
-
   Widget _drawerItems() {
     return Container(
       color: const Color(0xffF8F9FF),
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          // ===== HEADER =====
+          // HEADER
           InkWell(
             onTap: () async {
               await Navigator.push(
@@ -606,7 +580,8 @@ class _MainLayoutState extends State<MainLayout> {
           _menuItem("Home", Icons.home_rounded, 0),
           _menuItemWithBadge("Cart", Icons.shopping_cart_rounded, 1),
           _menuItem("Favorites", Icons.favorite_rounded, 2),
-          _menuItem("Settings", Icons.settings_rounded, 3),
+          _menuItem("Dashboard", Icons.dashboard_rounded, 3), // 🔥 NEW
+          _menuItem("Settings", Icons.settings_rounded, 4),
 
           _menuItem("Logout", Icons.logout_rounded, -1),
         ],
@@ -614,7 +589,6 @@ class _MainLayoutState extends State<MainLayout> {
     );
   }
 
-  // 🛒 MENU ITEM WITH CART BADGE
   Widget _menuItemWithBadge(String title, IconData icon, int index) {
     bool selected = selectedIndex == index;
 
@@ -655,7 +629,6 @@ class _MainLayoutState extends State<MainLayout> {
                       color: selected ? Colors.white : Colors.deepPurple,
                     ),
 
-                    // 🔥 Badge
                     if (itemCount > 0)
                       Positioned(
                         right: -6,
@@ -700,7 +673,6 @@ class _MainLayoutState extends State<MainLayout> {
                   ),
                 ),
 
-                // 🔥 Badge (alternative - right side)
                 if (itemCount > 0) ...[
                   const Spacer(),
                   Container(
@@ -736,9 +708,8 @@ class _MainLayoutState extends State<MainLayout> {
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: () async {
-        // 🔥 LOGOUT - With proper cleanup
+        // LOGOUT
         if (index == -1) {
-          // 🔥 Use handleLogout helper
           await handleLogout(context: context);
 
           if (!mounted) return;
@@ -792,10 +763,8 @@ class _MainLayoutState extends State<MainLayout> {
           return;
         }
 
-        // ✅ NORMAL MENU NAVIGATION
         _changePage(index);
 
-        // 📱 Mobile ma drawer close
         if (isMobile(context)) {
           Navigator.pop(context);
         }
@@ -835,8 +804,6 @@ class _MainLayoutState extends State<MainLayout> {
       ),
     );
   }
-
-  // ================= APP BAR ICON =================
 
   Widget _appBarIcon({required VoidCallback onTap, required String asset}) {
     return IconButton(

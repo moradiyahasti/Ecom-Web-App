@@ -8,19 +8,22 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/product_model.dart';
 
 class ApiService {
-  // static const String baseUrl = "http://192.168.1.25:5000"; // office
-  static const String baseUrl = "http://192.168.0.104:5000"; // home
+  // 🔥 BASE URL - Make sure this is correct
+  static const String baseUrl =
+      "http://localhost:8080/shreenails/php-backend/public";
 
   static const headers = {"Content-Type": "application/json"};
 
   // ========================= AUTH =========================
+  // 🔥 ALL AUTH ENDPOINTS MUST HAVE /api/ PREFIX
 
   static Future<Map<String, dynamic>> register({
     required String name,
     required String email,
     required String password,
   }) async {
-    final url = Uri.parse("$baseUrl/auth/register");
+    // 🔥 FIXED: /api/auth/register (not /auth/register)
+    final url = Uri.parse("$baseUrl/api/auth/register");
     final body = {"name": name, "email": email, "password": password};
 
     AppLogger.api("REGISTER", url);
@@ -38,7 +41,8 @@ class ApiService {
     required String email,
     required String password,
   }) async {
-    final url = Uri.parse("$baseUrl/auth/login");
+    // 🔥 FIXED: /api/auth/login (not /auth/login)
+    final url = Uri.parse("$baseUrl/api/auth/login");
     final body = {"email": email, "password": password};
 
     AppLogger.api("LOGIN", url);
@@ -50,6 +54,212 @@ class ApiService {
     AppLogger.info("Response: ${res.body}");
 
     return {"status": res.statusCode, "data": jsonDecode(res.body)};
+  }
+
+  static Future<Map<String, dynamic>> forgotPassword({
+    required String email,
+  }) async {
+    // 🔥 FIXED: /api/auth/forgot-password
+    final url = Uri.parse("$baseUrl/api/auth/forgot-password");
+    final body = {"email": email};
+
+    AppLogger.api("FORGOT PASSWORD", url);
+    AppLogger.info("Body: ${jsonEncode(body)}");
+
+    final res = await http.post(url, headers: headers, body: jsonEncode(body));
+
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
+
+    return {"status": res.statusCode, "data": jsonDecode(res.body)};
+  }
+
+  static Future<Map<String, dynamic>> verifyOTP({
+    required String email,
+    required String otp,
+  }) async {
+    // 🔥 FIXED: /api/auth/verify-otp
+    final url = Uri.parse("$baseUrl/api/auth/verify-otp");
+    final body = {"email": email, "otp": otp};
+
+    AppLogger.api("VERIFY OTP", url);
+    AppLogger.info("Body: ${jsonEncode(body)}");
+
+    final res = await http.post(url, headers: headers, body: jsonEncode(body));
+
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
+
+    return {"status": res.statusCode, "data": jsonDecode(res.body)};
+  }
+
+  static Future<Map<String, dynamic>> resetPassword({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    // 🔥 FIXED: /api/auth/reset-password
+    final url = Uri.parse("$baseUrl/api/auth/reset-password");
+    final body = {"email": email, "otp": otp, "newPassword": newPassword};
+
+    AppLogger.api("RESET PASSWORD", url);
+    AppLogger.info("Body: ${jsonEncode(body)}");
+
+    final res = await http.post(url, headers: headers, body: jsonEncode(body));
+
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
+
+    return {"status": res.statusCode, "data": jsonDecode(res.body)};
+  }
+
+  static Future<Map<String, dynamic>> resendOTP({required String email}) async {
+    // 🔥 FIXED: /api/auth/resend-otp
+    final url = Uri.parse("$baseUrl/api/auth/resend-otp");
+    final body = {"email": email};
+
+    AppLogger.api("RESEND OTP", url);
+    AppLogger.info("Body: ${jsonEncode(body)}");
+
+    final res = await http.post(url, headers: headers, body: jsonEncode(body));
+
+    AppLogger.info("Status: ${res.statusCode}");
+    AppLogger.info("Response: ${res.body}");
+
+    return {"status": res.statusCode, "data": jsonDecode(res.body)};
+  }
+
+  static Future<bool> changePassword({
+    required String oldPassword,
+    required String newPassword,
+    required String token,
+  }) async {
+    try {
+      if (token.isEmpty) return false;
+
+      // 🔥 FIXED: /api/auth/change-password
+      final url = Uri.parse("$baseUrl/api/auth/change-password");
+
+      AppLogger.api("CHANGE PASSWORD", url);
+
+      final response = await http.put(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode({
+          "oldPassword": oldPassword,
+          "newPassword": newPassword,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        AppLogger.success("Password changed successfully");
+        return true;
+      } else {
+        AppLogger.error("Change password failed: ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      AppLogger.error("Exception in changePassword", e);
+      return false;
+    }
+  }
+
+  static Future<String?> refreshToken() async {
+    try {
+      final refreshToken = await TokenService.getRefreshToken();
+
+      if (refreshToken == null) return null;
+
+      // 🔥 FIXED: /api/auth/refresh-token
+      final url = Uri.parse("$baseUrl/api/auth/refresh-token");
+      final response = await http.post(
+        url,
+        headers: headers,
+        body: jsonEncode({"refreshToken": refreshToken}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final newToken = data['token'];
+
+        await TokenService.updateToken(newToken);
+
+        AppLogger.success("Token refreshed successfully");
+        return newToken;
+      }
+
+      return null;
+    } catch (e) {
+      AppLogger.error("Token refresh failed", e);
+      return null;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> updateProfile({
+    required String token,
+    required String name,
+    required String email,
+  }) async {
+    try {
+      // 🔥 FIXED: /api/auth/update-profile
+      final url = Uri.parse("$baseUrl/api/auth/update-profile");
+
+      AppLogger.api("UPDATE PROFILE", url);
+
+      final response = await http.put(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode({"name": name, "email": email}),
+      );
+
+      AppLogger.info("Status: ${response.statusCode}");
+
+      if (response.statusCode == 401) {
+        AppLogger.info("Token expired, attempting refresh...");
+
+        final newToken = await refreshToken();
+
+        if (newToken != null) {
+          final retryResponse = await http.put(
+            url,
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer $newToken",
+            },
+            body: jsonEncode({"name": name, "email": email}),
+          );
+
+          if (retryResponse.statusCode == 200) {
+            final data = jsonDecode(retryResponse.body);
+            if (data.containsKey('user')) {
+              AppLogger.success("Profile updated successfully (after refresh)");
+              return data['user'];
+            }
+          }
+        }
+
+        return null;
+      }
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data.containsKey('user')) {
+          AppLogger.success("Profile updated successfully");
+          return data['user'];
+        }
+      }
+
+      return null;
+    } catch (e) {
+      AppLogger.error("Exception in updateProfile", e);
+      return null;
+    }
   }
 
   // ========================= PRODUCTS =========================
@@ -275,103 +485,6 @@ class ApiService {
       return data['favorite'] == true;
     } else {
       throw Exception("Failed to toggle favorite");
-    }
-  }
-/* 
- static Future<Map<String, dynamic>?> updateProfile({
-  required String token,
-  required String name,
-  required String email,
-}) async {
-  try {
-    final url = Uri.parse("$baseUrl/auth/update-profile");
-
-    AppLogger.api("UPDATE PROFILE", url);
-    AppLogger.info("Request Headers: Authorization Bearer [TOKEN]");
-    AppLogger.info("Request Body: {name: $name, email: $email}");
-
-    final response = await http.put(
-      url,
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token", // 🔥 This is correct
-      },
-      body: jsonEncode({
-        "name": name,
-        "email": email,
-      }),
-    );
-
-    AppLogger.info("Status: ${response.statusCode}");
-    AppLogger.info("Response: ${response.body}");
-
-    // 🔥 BETTER ERROR HANDLING
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      
-      // Check if 'user' key exists in response
-      if (data.containsKey('user')) {
-        AppLogger.success("Profile updated successfully");
-        return data['user'];
-      } else {
-        AppLogger.error("Invalid response structure: ${response.body}");
-        return null;
-      }
-    } else {
-      // 🔥 LOG DETAILED ERROR
-      AppLogger.error("Profile update failed - Status: ${response.statusCode}");
-      AppLogger.error("Error Response: ${response.body}");
-      
-      // Try to parse error message
-      try {
-        final errorData = jsonDecode(response.body);
-        AppLogger.error("Error Message: ${errorData['error'] ?? 'Unknown error'}");
-      } catch (e) {
-        AppLogger.error("Could not parse error response");
-      }
-      
-      return null;
-    }
-  } catch (e) {
-    AppLogger.error("Exception in updateProfile", e);
-    return null;
-  }
-}
- */
-  static Future<bool> changePassword({
-    required String oldPassword,
-    required String newPassword,
-    required String token,
-  }) async {
-    try {
-      if (token.isEmpty) return false;
-
-      final url = Uri.parse("$baseUrl/auth/change-password");
-
-      AppLogger.api("CHANGE PASSWORD", url);
-
-      final response = await http.put(
-        url,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer $token",
-        },
-        body: jsonEncode({
-          "oldPassword": oldPassword,
-          "newPassword": newPassword,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        AppLogger.success("Password changed successfully");
-        return true;
-      } else {
-        AppLogger.error("Change password failed: ${response.body}");
-        return false;
-      }
-    } catch (e) {
-      AppLogger.error("Exception in changePassword", e);
-      return false;
     }
   }
 
@@ -602,7 +715,7 @@ class ApiService {
 
   static Future<String> getTransactionStatus(String transactionRef) async {
     try {
-      final url = Uri.parse('$baseUrl/transactions/$transactionRef/status');
+      final url = Uri.parse('$baseUrl/api/transactions/$transactionRef/status');
 
       AppLogger.api("GET TRANSACTION STATUS", url);
 
@@ -618,171 +731,191 @@ class ApiService {
       return 'pending';
     }
   }
-  // ========================= FORGOT PASSWORD =========================
+  // Add these methods to your ApiService class in api_service.dart
 
-  static Future<Map<String, dynamic>> forgotPassword({
-    required String email,
-  }) async {
-    final url = Uri.parse("$baseUrl/auth/forgot-password");
-    final body = {"email": email};
+  // ========================= USER ORDERS =========================
 
-    AppLogger.api("FORGOT PASSWORD", url);
-    AppLogger.info("Body: ${jsonEncode(body)}");
 
-    final res = await http.post(url, headers: headers, body: jsonEncode(body));
+  static Future<List<Map<String, dynamic>>> getUserOrders(int userId) async {
+    final url = Uri.parse("$baseUrl/api/orders/user/$userId");
 
-    AppLogger.info("Status: ${res.statusCode}");
-    AppLogger.info("Response: ${res.body}");
+    print("📡 GET USER ORDERS: $url");
 
-    return {"status": res.statusCode, "data": jsonDecode(res.body)};
-  }
-
-  static Future<Map<String, dynamic>> verifyOTP({
-    required String email,
-    required String otp,
-  }) async {
-    final url = Uri.parse("$baseUrl/auth/verify-otp");
-    final body = {"email": email, "otp": otp};
-
-    AppLogger.api("VERIFY OTP", url);
-    AppLogger.info("Body: ${jsonEncode(body)}");
-
-    final res = await http.post(url, headers: headers, body: jsonEncode(body));
-
-    AppLogger.info("Status: ${res.statusCode}");
-    AppLogger.info("Response: ${res.body}");
-
-    return {"status": res.statusCode, "data": jsonDecode(res.body)};
-  }
-
-  static Future<Map<String, dynamic>> resetPassword({
-    required String email,
-    required String otp,
-    required String newPassword,
-  }) async {
-    final url = Uri.parse("$baseUrl/auth/reset-password");
-    final body = {"email": email, "otp": otp, "newPassword": newPassword};
-
-    AppLogger.api("RESET PASSWORD", url);
-    AppLogger.info("Body: ${jsonEncode(body)}");
-
-    final res = await http.post(url, headers: headers, body: jsonEncode(body));
-
-    AppLogger.info("Status: ${res.statusCode}");
-    AppLogger.info("Response: ${res.body}");
-
-    return {"status": res.statusCode, "data": jsonDecode(res.body)};
-  }
-
-  static Future<Map<String, dynamic>> resendOTP({required String email}) async {
-    final url = Uri.parse("$baseUrl/auth/resend-otp");
-    final body = {"email": email};
-
-    AppLogger.api("RESEND OTP", url);
-    AppLogger.info("Body: ${jsonEncode(body)}");
-
-    final res = await http.post(url, headers: headers, body: jsonEncode(body));
-
-    AppLogger.info("Status: ${res.statusCode}");
-    AppLogger.info("Response: ${res.body}");
-
-    return {"status": res.statusCode, "data": jsonDecode(res.body)};
-  }
-   static Future<String?> refreshToken() async {
     try {
-      final refreshToken = await TokenService.getRefreshToken();
-      
-      if (refreshToken == null) return null;
-
-      final url = Uri.parse("$baseUrl/auth/refresh-token");
-      final response = await http.post(
+      final res = await http.get(
         url,
-        headers: headers,
-        body: jsonEncode({"refreshToken": refreshToken}),
+        headers: {"Content-Type": "application/json"},
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final newToken = data['token'];
+      print("📊 Status: ${res.statusCode}");
+      print("📦 Response Body: ${res.body}");
+
+      if (res.statusCode == 200) {
+        // 🔥 PHP now returns direct array
+        final dynamic decoded = jsonDecode(res.body);
         
-        // Save new token
-        await TokenService.updateToken(newToken);
-        
-        AppLogger.success("Token refreshed successfully");
-        return newToken;
+        if (decoded is List) {
+          // ✅ Direct array response
+          print("✅ Got ${decoded.length} orders");
+          return decoded.cast<Map<String, dynamic>>();
+        } else if (decoded is Map && decoded.containsKey('orders')) {
+          // Fallback if still wrapped
+          print("⚠️ Got wrapped response");
+          return (decoded['orders'] as List).cast<Map<String, dynamic>>();
+        } else {
+          print("❌ Unexpected response format: ${decoded.runtimeType}");
+          throw Exception("Unexpected response format");
+        }
+      } else {
+        print("❌ Failed with status: ${res.statusCode}");
+        throw Exception("Failed to load user orders: ${res.statusCode}");
       }
-      
-      return null;
     } catch (e) {
-      AppLogger.error("Token refresh failed", e);
-      return null;
+      print("❌ GET USER ORDERS ERROR: $e");
+      rethrow;
     }
   }
 
-  // 🔥 UPDATED UPDATE PROFILE with auto-retry
-  static Future<Map<String, dynamic>?> updateProfile({
-    required String token,
-    required String name,
-    required String email,
-  }) async {
+  // ========================= USER ADDRESS - FIXED =========================
+
+  static Future<Map<String, dynamic>?> getUserAddress(int userId) async {
+    final url = Uri.parse("$baseUrl/api/address/user/$userId");
+
+    print("📡 GET USER ADDRESS: $url");
+
     try {
-      final url = Uri.parse("$baseUrl/auth/update-profile");
-
-      AppLogger.api("UPDATE PROFILE", url);
-
-      final response = await http.put(
+      final res = await http.get(
         url,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer $token",
-        },
-        body: jsonEncode({"name": name, "email": email}),
+        headers: {"Content-Type": "application/json"},
       );
 
-      AppLogger.info("Status: ${response.statusCode}");
+      print("📊 Status: ${res.statusCode}");
+      print("📦 Response: ${res.body}");
 
-      // 🔥 IF TOKEN EXPIRED, REFRESH AND RETRY
-      if (response.statusCode == 401) {
-        AppLogger.info("Token expired, attempting refresh...");
+      if (res.statusCode == 200) {
+        final dynamic decoded = jsonDecode(res.body);
         
-        final newToken = await refreshToken();
-        
-        if (newToken != null) {
-          // Retry with new token
-          final retryResponse = await http.put(
-            url,
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": "Bearer $newToken",
-            },
-            body: jsonEncode({"name": name, "email": email}),
-          );
-
-          if (retryResponse.statusCode == 200) {
-            final data = jsonDecode(retryResponse.body);
-            if (data.containsKey('user')) {
-              AppLogger.success("Profile updated successfully (after refresh)");
-              return data['user'];
-            }
-          }
+        if (decoded is List && decoded.isNotEmpty) {
+          // ✅ PHP returns direct array - get first address
+          print("✅ Got ${decoded.length} addresses, returning first");
+          return decoded.first as Map<String, dynamic>;
+        } else if (decoded is Map && decoded.containsKey('addresses')) {
+          // Fallback if still wrapped
+          final addresses = decoded['addresses'] as List;
+          print("⚠️ Got wrapped response with ${addresses.length} addresses");
+          return addresses.isNotEmpty ? addresses.first : null;
+        } else if (decoded is List && decoded.isEmpty) {
+          print("ℹ️ No addresses found");
+          return null;
+        } else {
+          print("❌ Unexpected format: ${decoded.runtimeType}");
+          return null;
         }
-        
+      } else {
+        print("❌ Failed with status: ${res.statusCode}");
         return null;
       }
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data.containsKey('user')) {
-          AppLogger.success("Profile updated successfully");
-          return data['user'];
-        }
-      }
-
-      return null;
     } catch (e) {
-      AppLogger.error("Exception in updateProfile", e);
+      print("❌ GET USER ADDRESS ERROR: $e");
       return null;
     }
   }
 
+  // ========================= CREATE ORDER =========================
+
+  static Future<Map<String, dynamic>> createOrder({
+    required int userId,
+    required int addressId,
+    required double subtotal,
+    required double tax,
+    required double shipping,
+    required double discount,
+    required double total,
+    required List<Map<String, dynamic>> items,
+  }) async {
+    final url = Uri.parse("$baseUrl/api/orders/create");
+
+    print("📡 CREATE ORDER: $url");
+
+    final body = jsonEncode({
+      'user_id': userId,
+      'address_id': addressId,
+      'subtotal': subtotal,
+      'tax': tax,
+      'shipping': shipping,
+      'discount': discount,
+      'total': total,
+      'items': items,
+    });
+
+    print("📤 Request Body: $body");
+
+    try {
+      final res = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: body,
+      );
+
+      print("📊 Status: ${res.statusCode}");
+      print("📦 Response: ${res.body}");
+
+      if (res.statusCode == 201 || res.statusCode == 200) {
+        return jsonDecode(res.body);
+      } else {
+        throw Exception("Failed to create order: ${res.statusCode}");
+      }
+    } catch (e) {
+      print("❌ CREATE ORDER ERROR: $e");
+      rethrow;
+    }
+  }
+
+  // ========================= ADD ADDRESS =========================
+
+  static Future<Map<String, dynamic>> addAddress({
+    required int userId,
+    required String name,
+    required String mobile,
+    required String addressLine,
+    required String city,
+    required String state,
+    required String pincode,
+  }) async {
+    final url = Uri.parse("$baseUrl/api/address/add");
+
+    print("📡 ADD ADDRESS: $url");
+
+    final body = jsonEncode({
+      'user_id': userId,
+      'name': name,
+      'mobile': mobile,
+      'address_line': addressLine,
+      'city': city,
+      'state': state,
+      'pincode': pincode,
+    });
+
+    print("📤 Request Body: $body");
+
+    try {
+      final res = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: body,
+      );
+
+      print("📊 Status: ${res.statusCode}");
+      print("📦 Response: ${res.body}");
+
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        return jsonDecode(res.body);
+      } else {
+        throw Exception("Failed to add address: ${res.statusCode}");
+      }
+    } catch (e) {
+      print("❌ ADD ADDRESS ERROR: $e");
+      rethrow;
+    }
+  }
 }
