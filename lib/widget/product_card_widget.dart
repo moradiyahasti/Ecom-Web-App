@@ -91,7 +91,7 @@ class _ProductCardState extends State<ProductCard>
                       }
                     },
               child: Container(
-                height: 48,
+                height: 30,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -127,14 +127,14 @@ class _ProductCardState extends State<ProductCard>
                           const Icon(
                             Icons.shopping_cart_outlined,
                             color: Colors.white,
-                            size: 18,
+                            size: 15,
                           ),
                           const SizedBox(width: 8),
                           Text(
                             "Add To Cart",
                             style: GoogleFonts.poppins(
                               color: Colors.white,
-                              fontSize: 15,
+                              fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -361,7 +361,7 @@ class _ProductCardState extends State<ProductCard>
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 8,),
           SizedBox(width: double.infinity, child: _cartButton(context)),
         ],
       );
@@ -770,13 +770,13 @@ class _ProductCardSnackBarState extends State<_ProductCardSnackBar>
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: widget.isSuccess
-                      ? [Colors.green.shade600, Colors.green.shade700]
+                      ? [Colors.deepPurple, Colors.deepPurple]
                       : [Colors.red.shade600, Colors.red.shade700],
                 ),
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: (widget.isSuccess ? Colors.green : Colors.red)
+                    color: (widget.isSuccess ? Colors.deepPurple : Colors.red)
                         .withOpacity(0.4),
                     blurRadius: 20,
                     offset: const Offset(0, 10),

@@ -160,7 +160,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
           ],
         ),
         backgroundColor: isSuccess
-            ? Colors.green.shade600
+            ? Colors.deepPurple
             : Colors.red.shade600,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

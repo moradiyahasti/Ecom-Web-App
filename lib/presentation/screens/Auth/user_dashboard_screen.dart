@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -19,7 +20,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
-  // User Data
   String userName = "";
   String userEmail = "";
   String userMobile = "";
@@ -28,16 +28,11 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
   String userState = "";
   String userPincode = "";
 
-  // Order Statistics
   int totalOrders = 0;
-  int successfulOrders = 0;
+  int paidOrders = 0;
   int pendingOrders = 0;
-  double totalSpent = 0.0;
-  double pendingAmount = 0.0;
 
-  // Order History
   List<Map<String, dynamic>> orderHistory = [];
-
   bool isLoading = true;
 
   @override
@@ -72,14 +67,14 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     setState(() => isLoading = true);
 
     try {
-      // Load user profile data
       final name = await TokenService.getName();
       final email = await TokenService.getEmail();
       final authProvider = context.read<AuthProvider>();
       final userId = authProvider.userId;
 
+      debugPrint("🔍 USER DATA - ID: $userId, Name: $name, Email: $email");
+
       if (userId != null) {
-        // Fetch user address
         try {
           final addressData = await ApiService.getUserAddress(userId);
 
@@ -95,142 +90,63 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
               userPincode = addressData['pincode'] ?? "";
             }
           });
+
+          debugPrint("✅ User loaded: $userName ($userEmail)");
         } catch (e) {
-          debugPrint("Error fetching address: $e");
+          debugPrint("❌ Error fetching address: $e");
         }
 
-        // Fetch user orders
         try {
           final orders = await ApiService.getUserOrders(userId);
+
+          debugPrint("📦 ORDERS FETCHED: ${orders.length} orders");
 
           setState(() {
             orderHistory = orders;
             _calculateStatistics();
           });
         } catch (e) {
-          debugPrint("Error fetching orders: $e");
-          // Use mock data if API fails
-          _loadMockOrderData();
+          debugPrint("❌ Error fetching orders: $e");
         }
       } else {
-        // No user ID - use defaults
         setState(() {
           userName = name ?? "Guest User";
           userEmail = email ?? "guest@example.com";
-          _loadMockOrderData();
         });
       }
 
       setState(() => isLoading = false);
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
-      debugPrint("Error loading user data: $e");
+      setState(() => isLoading = false);
+      debugPrint("❌ Error loading user data: $e");
     }
   }
 
   void _calculateStatistics() {
     totalOrders = orderHistory.length;
-    successfulOrders = orderHistory
-        .where(
-          (order) =>
-              order['payment_status']?.toString().toLowerCase() ==
-                  'completed' ||
-              order['payment_status']?.toString().toLowerCase() == 'paid',
-        )
-        .length;
-    pendingOrders = orderHistory
-        .where(
-          (order) =>
-              order['payment_status']?.toString().toLowerCase() == 'pending',
-        )
-        .length;
+    paidOrders = 0;
+    pendingOrders = 0;
 
-    totalSpent = orderHistory
-        .where(
-          (order) =>
-              order['payment_status']?.toString().toLowerCase() ==
-                  'completed' ||
-              order['payment_status']?.toString().toLowerCase() == 'paid',
-        )
-        .fold(0.0, (sum, order) {
-          final total = order['total'];
-          if (total is int) return sum + total.toDouble();
-          if (total is double) return sum + total;
-          return sum;
-        });
+    for (var order in orderHistory) {
+      final paymentStatus =
+          order['payment_status']?.toString().toLowerCase() ?? '';
+      debugPrint(
+        "🔍 Order ${order['order_id']}: Payment Status = '$paymentStatus'",
+      );
 
-    pendingAmount = orderHistory
-        .where(
-          (order) =>
-              order['payment_status']?.toString().toLowerCase() == 'pending',
-        )
-        .fold(0.0, (sum, order) {
-          final total = order['total'];
-          if (total is int) return sum + total.toDouble();
-          if (total is double) return sum + total;
-          return sum;
-        });
-  }
+      if (paymentStatus == 'paid' ||
+          paymentStatus == 'completed' ||
+          paymentStatus == 'success') {
+        paidOrders++;
+      } else if (paymentStatus == 'pending') {
+        pendingOrders++;
+      }
+    }
 
-  void _loadMockOrderData() {
-    // Mock data for demonstration
-    orderHistory = [
-      {
-        "order_id": 1001,
-        "date": DateTime.now()
-            .subtract(const Duration(days: 2))
-            .toIso8601String(),
-        "status": "delivered",
-        "payment_status": "completed",
-        "items": [
-          {"name": "Nail Polish - Rose Gold", "qty": 2, "price": 299.0},
-          {"name": "Gel Nail Kit", "qty": 1, "price": 1499.0},
-        ],
-        "subtotal": 2097.0,
-        "tax": 80.0,
-        "shipping": 130.0,
-        "discount": 200.0,
-        "total": 2107.0,
-      },
-      {
-        "order_id": 1002,
-        "date": DateTime.now()
-            .subtract(const Duration(days: 5))
-            .toIso8601String(),
-        "status": "shipped",
-        "payment_status": "completed",
-        "items": [
-          {"name": "Matte Top Coat", "qty": 1, "price": 199.0},
-          {"name": "Nail Art Brush Set", "qty": 3, "price": 399.0},
-        ],
-        "subtotal": 1396.0,
-        "tax": 80.0,
-        "shipping": 0.0,
-        "discount": 0.0,
-        "total": 1476.0,
-      },
-      {
-        "order_id": 1003,
-        "date": DateTime.now()
-            .subtract(const Duration(days: 1))
-            .toIso8601String(),
-        "status": "processing",
-        "payment_status": "pending",
-        "items": [
-          {"name": "UV Nail Lamp", "qty": 1, "price": 2999.0},
-          {"name": "Cuticle Oil Set", "qty": 2, "price": 249.0},
-        ],
-        "subtotal": 3497.0,
-        "tax": 80.0,
-        "shipping": 130.0,
-        "discount": 0.0,
-        "total": 3707.0,
-      },
-    ];
-
-    _calculateStatistics();
+    debugPrint("📊 FINAL STATS:");
+    debugPrint("  Total Orders: $totalOrders");
+    debugPrint("  Paid Orders: $paidOrders");
+    debugPrint("  Pending Orders: $pendingOrders");
   }
 
   @override
@@ -249,6 +165,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
         title: Text(
           "My Dashboard",
           style: GoogleFonts.poppins(
@@ -279,12 +196,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Welcome Section
                         _buildWelcomeSection(),
-
                         const SizedBox(height: 24),
-
-                        // Stats Cards
                         if (isMobile)
                           Column(
                             children: [
@@ -302,10 +215,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                               Expanded(flex: 1, child: _buildProfileCard()),
                             ],
                           ),
-
                         const SizedBox(height: 24),
-
-                        // Order History
                         _buildOrderHistory(),
                       ],
                     ),
@@ -374,10 +284,15 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
               color: Colors.white.withOpacity(0.2),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
-              Icons.person_outline,
-              size: 40,
-              color: Colors.white,
+            child: Center(
+              child: Text(
+                userName.isNotEmpty ? userName[0].toUpperCase() : "?",
+                style: GoogleFonts.poppins(
+                  fontSize: 36,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
             ),
           ),
         ],
@@ -395,15 +310,15 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                 title: "Total Orders",
                 value: totalOrders.toString(),
                 icon: Icons.shopping_bag_outlined,
-                color: Colors.deepPurple,
+                color: const Color(0xff6C63FF),
                 delay: 0,
               ),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: _buildStatCard(
-                title: "Successful",
-                value: successfulOrders.toString(),
+                title: "Paid Orders",
+                value: paidOrders.toString(),
                 icon: Icons.check_circle_outline,
                 color: const Color(0xff00D9A5),
                 delay: 100,
@@ -412,40 +327,14 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
           ],
         ),
         const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                title: "Pending",
-                value: pendingOrders.toString(),
-                icon: Icons.pending_outlined,
-                color: const Color(0xffFF6B6B),
-                delay: 200,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildStatCard(
-                title: "Total Spent",
-                value: "₹${totalSpent.toInt()}",
-                icon: Icons.account_balance_wallet_outlined,
-                color: const Color(0xffFFA500),
-                delay: 300,
-              ),
-            ),
-          ],
+        _buildStatCard(
+          title: "Pending Payments",
+          value: pendingOrders.toString(),
+          icon: Icons.pending_outlined,
+          color: const Color(0xffFF6B6B),
+          delay: 200,
+          fullWidth: true,
         ),
-        if (pendingAmount > 0) ...[
-          const SizedBox(height: 16),
-          _buildStatCard(
-            title: "Pending Payments",
-            value: "₹${pendingAmount.toInt()}",
-            icon: Icons.payment_outlined,
-            color: const Color(0xffE74C3C),
-            delay: 400,
-            fullWidth: true,
-          ),
-        ],
       ],
     );
   }
@@ -474,9 +363,9 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
+                    color: color.withOpacity(0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
                   ),
                 ],
               ),
@@ -487,36 +376,45 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: color.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
+                          color: color.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(14),
                         ),
-                        child: Icon(icon, color: color, size: 24),
+                        child: Icon(icon, color: color, size: 26),
                       ),
                       if (!fullWidth)
-                        Icon(
-                          Icons.trending_up,
-                          color: Colors.grey.shade400,
-                          size: 20,
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.trending_up,
+                            color: Colors.green.shade600,
+                            size: 18,
+                          ),
                         ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
                   Text(
                     title,
                     style: GoogleFonts.poppins(
                       fontSize: 13,
+                      fontWeight: FontWeight.w500,
                       color: Colors.grey.shade600,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Text(
                     value,
                     style: GoogleFonts.poppins(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
                       color: const Color(0xff1A1A2E),
+                      height: 1.2,
                     ),
                   ),
                 ],
@@ -546,68 +444,14 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.05),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
                   ),
                 ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Colors.deepPurple, Color(0xff8B7FE8)],
-                          ),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            userName.isNotEmpty
-                                ? userName[0].toUpperCase()
-                                : "?",
-                            style: GoogleFonts.poppins(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Profile",
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                            Text(
-                              userName,
-                              style: GoogleFonts.poppins(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xff1A1A2E),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  const Divider(),
-                  const SizedBox(height: 16),
                   _buildProfileRow(Icons.email_outlined, "Email", userEmail),
                   if (userMobile.isNotEmpty) ...[
                     const SizedBox(height: 16),
@@ -649,14 +493,14 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Colors.deepPurple.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
+            color: const Color(0xff6C63FF).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, size: 18, color: Colors.deepPurple),
+          child: Icon(icon, size: 20, color: const Color(0xff6C63FF)),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -665,15 +509,16 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                 label,
                 style: GoogleFonts.poppins(
                   fontSize: 12,
+                  fontWeight: FontWeight.w500,
                   color: Colors.grey.shade600,
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 4),
               Text(
                 value,
                 style: GoogleFonts.poppins(
                   fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                   color: const Color(0xff1A1A2E),
                 ),
               ),
@@ -702,29 +547,44 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
             padding: const EdgeInsets.all(40),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
             child: Center(
               child: Column(
                 children: [
-                  Icon(
-                    Icons.shopping_bag_outlined,
-                    size: 60,
-                    color: Colors.grey.shade400,
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.shopping_bag_outlined,
+                      size: 50,
+                      color: Colors.grey.shade400,
+                    ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
                   Text(
                     "No orders yet",
                     style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      color: Colors.grey.shade600,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade700,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     "Start shopping to see your order history",
                     style: GoogleFonts.poppins(
-                      fontSize: 13,
+                      fontSize: 14,
                       color: Colors.grey.shade500,
                     ),
                   ),
@@ -761,7 +621,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
   Widget _buildOrderCard(Map<String, dynamic> order) {
     final orderId = order['order_id'] ?? order['id'] ?? 0;
 
-    // Parse date
     DateTime date;
     try {
       final dateStr = order['date'] ?? order['created_at'];
@@ -775,21 +634,43 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     }
 
     final status = (order['status'] ?? 'processing').toString();
-    final paymentStatus = (order['payment_status'] ?? 'pending').toString();
+    final paymentStatus = (order['payment_status'] ?? 'pending')
+        .toString()
+        .toLowerCase();
 
-    // Parse items
+    final isPending = paymentStatus == 'pending';
+    final isPaid =
+        paymentStatus == 'paid' ||
+        paymentStatus == 'completed' ||
+        paymentStatus == 'success';
+
+    // 🔥 FIXED: Parse items properly
     List<Map<String, dynamic>> items = [];
     try {
-      if (order['items'] is List) {
-        items = (order['items'] as List).cast<Map<String, dynamic>>();
-      } else if (order['order_items'] is List) {
-        items = (order['order_items'] as List).cast<Map<String, dynamic>>();
+      if (order['items'] != null) {
+        if (order['items'] is String) {
+          final decodedItems = jsonDecode(order['items']);
+          if (decodedItems is List) {
+            items = List<Map<String, dynamic>>.from(
+              decodedItems.map((item) => Map<String, dynamic>.from(item)),
+            );
+          }
+        } else if (order['items'] is List) {
+          items = List<Map<String, dynamic>>.from(
+            (order['items'] as List).map((item) {
+              if (item is Map) {
+                return Map<String, dynamic>.from(item);
+              }
+              return <String, dynamic>{};
+            }),
+          );
+        }
       }
+      debugPrint("✅ Order #$orderId parsed ${items.length} items");
     } catch (e) {
-      debugPrint("Error parsing items: $e");
+      debugPrint("❌ Error parsing items for order #$orderId: $e");
     }
 
-    // Parse total
     double total = 0.0;
     try {
       final totalValue = order['total'] ?? order['total_amount'] ?? 0;
@@ -801,43 +682,46 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
         total = double.tryParse(totalValue) ?? 0.0;
       }
     } catch (e) {
-      debugPrint("Error parsing total: $e");
+      debugPrint("❌ Error parsing total: $e");
     }
 
     final statusColor = _getStatusColor(status);
     final paymentColor = _getPaymentColor(paymentStatus);
 
     return Container(
+      // margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: paymentStatus.toLowerCase() == 'pending'
+          color: isPending
               ? const Color(0xffFF6B6B).withOpacity(0.3)
-              : Colors.grey.shade200,
-          width: 2,
+              : const Color(0xff00D9A5).withOpacity(0.3),
+          width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
+            color:
+                (isPending ? const Color(0xffFF6B6B) : const Color(0xff00D9A5))
+                    .withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          tilePadding: const EdgeInsets.all(20),
-          childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          tilePadding: const EdgeInsets.all(16),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           leading: Container(
-            width: 50,
-            height: 50,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  statusColor.withOpacity(0.2),
-                  statusColor.withOpacity(0.1),
+                  statusColor.withOpacity(0.15),
+                  statusColor.withOpacity(0.05),
                 ],
               ),
               borderRadius: BorderRadius.circular(12),
@@ -846,20 +730,31 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
               child: Text(
                 "#$orderId",
                 style: GoogleFonts.poppins(
-                  fontSize: 12,
+                  fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: statusColor,
                 ),
               ),
             ),
           ),
-          title: Text(
-            "Order #$orderId",
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xff1A1A2E),
-            ),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  "Order #$orderId",
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff1A1A2E),
+                  ),
+                ),
+              ),
+              // 🔥 Show payment status badge in title
+              _buildCompactStatusChip(
+                isPaid ? '✓ PAID' : '⏳ PENDING',
+                paymentColor,
+              ),
+            ],
           ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -869,107 +764,137 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                 children: [
                   Icon(
                     Icons.calendar_today,
-                    size: 14,
-                    color: Colors.grey.shade600,
+                    size: 12,
+                    color: Colors.grey.shade500,
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    DateFormat('dd MMM yyyy, hh:mm a').format(date),
+                    DateFormat('dd MMM yyyy').format(date),
                     style: GoogleFonts.poppins(
-                      fontSize: 13,
+                      fontSize: 12,
                       color: Colors.grey.shade600,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    "₹${total.toInt()}",
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xff1A1A2E),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  _buildStatusChip(status, statusColor),
-                  const SizedBox(width: 8),
-                  _buildStatusChip(
-                    paymentStatus.toLowerCase() == 'completed' ||
-                            paymentStatus.toLowerCase() == 'paid'
-                        ? 'Paid'
-                        : 'Pending Payment',
-                    paymentColor,
-                  ),
-                ],
-              ),
-            ],
-          ),
-          trailing: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                "₹${total.toInt()}",
-                style: GoogleFonts.poppins(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xff1A1A2E),
-                ),
-              ),
-              Text(
-                "${items.length} items",
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
-              ),
             ],
           ),
           children: [
-            const Divider(),
+            Divider(color: Colors.grey.shade200, thickness: 1),
             const SizedBox(height: 12),
+
+            // 🔥 FIXED: Show items like cart design
             if (items.isNotEmpty)
-              ...items.map((item) => _buildOrderItem(item))
+              ...items.map((item) => _buildCartStyleOrderItem(item))
             else
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(
-                  "No item details available",
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
-                  ),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: Colors.grey.shade600,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        "No item details available",
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            const SizedBox(height: 16),
-            const Divider(),
+
             const SizedBox(height: 12),
+            Divider(color: Colors.grey.shade200, thickness: 1),
+            // const SizedBox(height: 5),
             _buildOrderSummary(order),
-            if (paymentStatus.toLowerCase() == 'pending') ...[
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
+
+            // 🔥 Payment button only for pending
+            if (isPending) ...[
+              const SizedBox(height: 10),
+              Container(
+                height: 44,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xffFF6B6B), Color(0xffFF8787)],
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xffFF6B6B).withOpacity(0.25),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xffFF6B6B),
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(
-                          "Complete payment for order #$orderId",
-                          style: GoogleFonts.poppins(color: Colors.white),
+                        content: Row(
+                          children: [
+                            const Icon(
+                              Icons.payment,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                "Complete payment for Order #$orderId",
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         backgroundColor: const Color(0xffFF6B6B),
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     );
                   },
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.payment, color: Colors.white),
-                      const SizedBox(width: 8),
+                      const Icon(Icons.payment, color: Colors.white, size: 18),
+                      const SizedBox(width: 10),
                       Text(
                         "Complete Payment",
                         style: GoogleFonts.poppins(
+                          fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
                         ),
@@ -985,9 +910,16 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     );
   }
 
-  Widget _buildOrderItem(Map<String, dynamic> item) {
-    final name = item['name'] ?? item['product_name'] ?? 'Unknown Product';
+  // 🔥 NEW: Cart-style item display (matching the image you showed)
+  Widget _buildCartStyleOrderItem(Map<String, dynamic> item) {
+    final name =
+        item['name'] ??
+        item['product_name'] ??
+        item['title'] ??
+        'Unknown Product';
+    final subtitle = item['subtitle'] ?? 'Gel Information';
     final qty = item['qty'] ?? item['quantity'] ?? 1;
+    final imageUrl = item['image_url'] ?? item['image'] ?? '';
 
     double price = 0.0;
     try {
@@ -1000,48 +932,139 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
         price = double.tryParse(priceValue) ?? 0.0;
       }
     } catch (e) {
-      debugPrint("Error parsing price: $e");
+      debugPrint("❌ Error parsing price: $e");
     }
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+    final itemTotal = price * qty;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xffF5F5F5),
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Row(
         children: [
+          // 🔥 Product Image (like cart design)
           Container(
-            width: 8,
-            height: 8,
-            decoration: const BoxDecoration(
-              color: Colors.deepPurple,
-              shape: BoxShape.circle,
+            width: 70,
+            height: 70,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: imageUrl.isNotEmpty
+                  ? Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Icon(
+                          Icons.image_not_supported,
+                          color: Colors.grey.shade400,
+                          size: 30,
+                        );
+                      },
+                    )
+                  : Icon(
+                      Icons.shopping_bag_outlined,
+                      color: Colors.grey.shade400,
+                      size: 30,
+                    ),
             ),
           ),
+
           const SizedBox(width: 12),
+
+          // 🔥 Product Info (like cart design)
           Expanded(
-            child: Text(
-              name,
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: const Color(0xff1A1A2E),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff1A1A2E),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Quantity display
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Text(
+                        "$qty",
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xff1A1A2E),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // 🔥 Price (like cart design)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                "₹${itemTotal.toInt()}",
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xff1A1A2E),
+                ),
               ),
-            ),
-          ),
-          Text(
-            "Qty: $qty",
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              color: Colors.grey.shade600,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Text(
-            "₹${(price * qty).toInt()}",
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xff1A1A2E),
-            ),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCompactStatusChip(String status, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3), width: 1),
+      ),
+      child: Text(
+        status.toUpperCase(),
+        style: GoogleFonts.poppins(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: color,
+          letterSpacing: 0.3,
+        ),
       ),
     );
   }
@@ -1060,7 +1083,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
       discount = _parseDouble(order['discount'] ?? 0);
       total = _parseDouble(order['total'] ?? order['total_amount'] ?? 0);
     } catch (e) {
-      debugPrint("Error parsing order summary: $e");
+      debugPrint("❌ Error parsing order summary: $e");
     }
 
     return Column(
@@ -1074,7 +1097,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
             "- ₹${discount.toInt()}",
             color: const Color(0xff00D9A5),
           ),
-        const Divider(),
+        Divider(color: Colors.grey.shade300, thickness: 1),
         _buildSummaryRow("Total", "₹${total.toInt()}", bold: true),
       ],
     );
@@ -1101,16 +1124,16 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
           Text(
             label,
             style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
+              fontSize: 13,
+              fontWeight: bold ? FontWeight.w600 : FontWeight.w500,
               color: color ?? Colors.grey.shade700,
             ),
           ),
           Text(
             value,
             style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
+              fontSize: bold ? 16 : 13,
+              fontWeight: bold ? FontWeight.w700 : FontWeight.w600,
               color: color ?? const Color(0xff1A1A2E),
             ),
           ),
@@ -1119,31 +1142,13 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     );
   }
 
-  Widget _buildStatusChip(String status, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Text(
-        status.toUpperCase(),
-        style: GoogleFonts.poppins(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
-      ),
-    );
-  }
-
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'delivered':
+      case 'paid':
         return const Color(0xff00D9A5);
       case 'shipped':
-        return Colors.deepPurple;
+        return const Color(0xff6C63FF);
       case 'processing':
         return const Color(0xffFFA500);
       case 'cancelled':
@@ -1157,6 +1162,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     switch (paymentStatus.toLowerCase()) {
       case 'completed':
       case 'paid':
+      case 'success':
         return const Color(0xff00D9A5);
       case 'pending':
         return const Color(0xffFF6B6B);

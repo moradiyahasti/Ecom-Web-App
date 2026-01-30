@@ -122,13 +122,13 @@ class _PremiumSnackBarState extends State<_PremiumSnackBar>
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: widget.isSuccess
-                      ? [Colors.green.shade600, Colors.green.shade700]
+                      ? [Colors.deepPurple, Colors.deepPurple]
                       : [Colors.red.shade600, Colors.red.shade700],
                 ),
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: (widget.isSuccess ? Colors.green : Colors.red)
+                    color: (widget.isSuccess ? Colors.deepPurple : Colors.red)
                         .withOpacity(0.4),
                     blurRadius: 20,
                     offset: const Offset(0, 10),

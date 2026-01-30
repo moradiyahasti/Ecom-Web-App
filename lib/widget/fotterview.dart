@@ -47,7 +47,9 @@ class _ContactFormSectionState extends State<ContactFormSection> {
   bool _isSubmitting = false;
 
   // 🔥 YOUR API ENDPOINT
-  static const String API_URL = 'http://192.168.29.212:5000/api/contact';
+  static const String API_URL =
+      "http://192.168.1.25:8080/shreenails/php-backend/public/api/contact";
+  // static const String API_URL = 'http://192.168.29.212:5000/api/contact';
 
   @override
   void initState() {
@@ -153,12 +155,12 @@ class _ContactFormSectionState extends State<ContactFormSection> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.green.shade50,
+                  color: Colors.deepPurple.shade50,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.check_circle,
-                  color: Colors.green.shade400,
+                  color: Colors.deepPurple.shade400,
                   size: 60,
                 ),
               ),

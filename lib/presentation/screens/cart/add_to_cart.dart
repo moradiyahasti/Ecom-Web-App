@@ -587,7 +587,7 @@ class CartScreenState extends State<CartScreen> {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isCouponApplied
-                  ? Colors.green
+                  ? Colors.deepPurple
                   : Colors.deepPurple.shade100,
             ),
           ),
@@ -603,7 +603,7 @@ class CartScreenState extends State<CartScreen> {
                     style: GoogleFonts.poppins(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: isCouponApplied ? Colors.green : Colors.deepPurple,
+                      color: isCouponApplied ? Colors.deepPurple : Colors.deepPurple,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -659,7 +659,7 @@ class CartScreenState extends State<CartScreen> {
                     onPressed: isCouponApplied ? null : _applyCoupon,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isCouponApplied
-                          ? Colors.green
+                          ? Colors.deepPurple
                           : Colors.deepPurple,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 20,
@@ -688,7 +688,7 @@ class CartScreenState extends State<CartScreen> {
             blastDirectionality: BlastDirectionality.explosive,
             numberOfParticles: 20,
             colors: const [
-              Colors.green,
+              Colors.deepPurple,
               Colors.deepPurple,
               Colors.orange,
               Colors.pink,

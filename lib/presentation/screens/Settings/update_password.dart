@@ -303,7 +303,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       strengthColor = Colors.orange;
       strengthText = 'Medium';
     } else {
-      strengthColor = Colors.green;
+      strengthColor = Colors.deepPurple;
       strengthText = 'Strong';
     }
 
@@ -707,7 +707,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           ],
         ),
         backgroundColor: isSuccess
-            ? Colors.green.shade600
+            ? Colors.deepPurple
             : Colors.red.shade600,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

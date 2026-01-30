@@ -928,7 +928,7 @@ Future<void> _handleContinue() async {
             ),
           ],
         ),
-        backgroundColor: Colors.green.shade600,
+        backgroundColor: Colors.deepPurple,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),

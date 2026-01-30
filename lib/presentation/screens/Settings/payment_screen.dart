@@ -56,9 +56,9 @@ class _PaymentScreenState extends State<PaymentScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    _amountController.text = widget.totalAmount > 0
+    _amountController.text =/*  widget.totalAmount > 0
         ? widget.totalAmount.toStringAsFixed(2)
-        : "1.00";
+        : */ "1.00";
 
     _upiAddressController.text = "sawan00meena@ucobank";
 
@@ -549,7 +549,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                         _checkPaymentStatus();
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
+                        backgroundColor: Colors.deepPurple,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
@@ -1359,8 +1359,8 @@ class _PaymentScreenState extends State<PaymentScreen>
                             shape: BoxShape.circle,
                             gradient: LinearGradient(
                               colors: [
-                                Colors.green.shade400,
-                                Colors.green.shade600,
+                                Colors.deepPurple.shade400,
+                                Colors.deepPurple,
                               ],
                             ),
                           ),
@@ -1379,7 +1379,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                     style: GoogleFonts.poppins(
                       fontSize: 24,
                       fontWeight: FontWeight.w700,
-                      color: Colors.green.shade700,
+                      color: Colors.deepPurple,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -1399,7 +1399,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.green.shade50,
+                      color: Colors.deepPurple.shade50,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -1407,7 +1407,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                       style: GoogleFonts.poppins(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
-                        color: Colors.green.shade700,
+                        color: Colors.deepPurple,
                       ),
                     ),
                   ),
@@ -1428,7 +1428,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                       Navigator.of(context).pop();
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
+                      backgroundColor: Colors.deepPurple,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 40,
                         vertical: 16,
@@ -1456,7 +1456,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                   blastDirectionality: BlastDirectionality.explosive,
                   numberOfParticles: 30,
                   colors: const [
-                    Colors.green,
+                    Colors.deepPurple,
                     Colors.blue,
                     Colors.pink,
                     Colors.orange,

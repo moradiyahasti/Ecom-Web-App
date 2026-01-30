@@ -10,7 +10,7 @@ import '../models/product_model.dart';
 class ApiService {
   // 🔥 BASE URL - Make sure this is correct
   static const String baseUrl =
-      "http://localhost:8080/shreenails/php-backend/public";
+      "http://192.168.0.106:8080/shreenails/php-backend/public";
 
   static const headers = {"Content-Type": "application/json"};
 
@@ -735,7 +735,6 @@ class ApiService {
 
   // ========================= USER ORDERS =========================
 
-
   static Future<List<Map<String, dynamic>>> getUserOrders(int userId) async {
     final url = Uri.parse("$baseUrl/api/orders/user/$userId");
 
@@ -753,7 +752,7 @@ class ApiService {
       if (res.statusCode == 200) {
         // 🔥 PHP now returns direct array
         final dynamic decoded = jsonDecode(res.body);
-        
+
         if (decoded is List) {
           // ✅ Direct array response
           print("✅ Got ${decoded.length} orders");
@@ -794,7 +793,7 @@ class ApiService {
 
       if (res.statusCode == 200) {
         final dynamic decoded = jsonDecode(res.body);
-        
+
         if (decoded is List && decoded.isNotEmpty) {
           // ✅ PHP returns direct array - get first address
           print("✅ Got ${decoded.length} addresses, returning first");
