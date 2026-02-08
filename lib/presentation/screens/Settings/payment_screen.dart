@@ -28,8 +28,6 @@ class _PaymentScreenState extends State<PaymentScreen>
   String? _currentTransactionRef;
   bool _isProcessing = false;
   bool _isWaitingForPayment = false;
-
-  // ✅ CRITICAL: Track if payment was actually confirmed
   bool _paymentConfirmed = false;
 
   final ConfettiController _confettiController = ConfettiController(
@@ -64,8 +62,8 @@ class _PaymentScreenState extends State<PaymentScreen>
 
     _slideAnimation =
         Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
-          CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
-        );
+      CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
+    );
 
     _fadeAnimation = Tween<double>(
       begin: 0.0,
@@ -80,10 +78,8 @@ class _PaymentScreenState extends State<PaymentScreen>
 
   @override
   void dispose() {
-    // ✅ CRITICAL: Cancel status checking timer
     _statusCheckTimer?.cancel();
 
-    // ✅ SAFETY CHECK: Log if payment wasn't confirmed
     if (!_paymentConfirmed) {
       log("⚠️ Payment screen disposed WITHOUT payment confirmation");
       log("🛡️ Cart will be preserved (NOT cleared)");
@@ -127,6 +123,11 @@ class _PaymentScreenState extends State<PaymentScreen>
     }
 
     try {
+      log("📝 Creating pending transaction...");
+      log("   Order ID: $orderId");
+      log("   Transaction Ref: $transactionRef");
+      log("   Amount: 1.00");
+
       final success = await ApiService.createTransaction(
         orderId: orderId,
         transactionRef: transactionRef,
@@ -135,12 +136,28 @@ class _PaymentScreenState extends State<PaymentScreen>
       );
 
       if (success) {
-        log("✅ Pending transaction created: $transactionRef");
+        log("✅ Pending transaction created successfully");
       } else {
-        log("❌ Transaction API failed");
+        log("❌ Transaction API returned false");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to create transaction'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } catch (e) {
       log("❌ Failed to create pending transaction: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error creating transaction: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -150,76 +167,85 @@ class _PaymentScreenState extends State<PaymentScreen>
     String upiResponse,
   ) async {
     try {
+      log("📝 Updating transaction status...");
+      log("   Transaction Ref: $transactionRef");
+      log("   New Status: $status");
+      log("   UPI Response: $upiResponse");
+
       await ApiService.updateTransaction(
         transactionRef: transactionRef,
         status: status,
         upiResponse: upiResponse,
       );
-      log("✅ Transaction status updated: $transactionRef -> $status");
+      log("✅ Transaction status updated successfully");
     } catch (e) {
       log("❌ Failed to update transaction: $e");
+      rethrow; // Re-throw to handle in calling function
     }
   }
 
-  // ✅ CONFIRM PAYMENT TO BACKEND & CLEAR CART
-  // 🔥 THIS IS THE *ONLY* PLACE WHERE CART SHOULD BE CLEARED!
   Future<void> _confirmPaymentToBackend(String transactionRef) async {
     final orderId = widget.orderDetails?["order_id"];
 
     if (orderId == null) {
-      throw Exception("Order ID missing");
+      throw Exception("Order ID missing - cannot confirm payment");
     }
 
+    log("═══════════════════════════════════════════");
     log("📝 Confirming payment to backend...");
-
-    final success = await ApiService.confirmPayment(
-      orderId: orderId,
-      transactionRef: transactionRef,
-      paymentMethod: "UPI",
-    );
-
-    if (!success) {
-      throw Exception("Backend payment confirmation failed");
-    }
-
-    log("✅ Backend payment confirmed successfully");
-
-    // ✅ SET FLAG: Payment is now confirmed
-    _paymentConfirmed = true;
-    log("🎯 _paymentConfirmed set to TRUE");
-
-    // 🔥 ONLY CLEAR CART AFTER:
-    // 1. Payment status is 'success' from backend
-    // 2. Backend has confirmed the payment
-    // 3. Widget is still mounted
-    // 4. We have user ID
+    log("   Order ID: $orderId");
+    log("   Transaction Ref: $transactionRef");
+    log("   Payment Method: UPI");
+    log("═══════════════════════════════════════════");
 
     try {
+      final success = await ApiService.confirmPayment(
+        orderId: orderId,
+        transactionRef: transactionRef,
+        paymentMethod: "UPI",
+      );
+
+      if (!success) {
+        throw Exception("Backend payment confirmation returned false");
+      }
+
+      log("✅ Backend payment confirmed successfully");
+
+      // Set payment confirmed flag
+      _paymentConfirmed = true;
+      log("🎯 _paymentConfirmed set to TRUE");
+
+      // Clear cart
       if (mounted) {
         final userId = widget.orderDetails?["user_id"];
         if (userId != null) {
           log("═══════════════════════════════════════════");
           log("🗑️ PAYMENT CONFIRMED - Now clearing cart");
-          log("User ID: $userId");
-          log("Transaction: $transactionRef");
+          log("   User ID: $userId");
+          log("   Transaction: $transactionRef");
           log("═══════════════════════════════════════════");
 
-          // ✅ THIS IS THE ONLY PLACE WHERE CART SHOULD BE CLEARED!
           await context.read<CartProvider>().clearCart(userId);
 
           log("✅ Cart cleared successfully after confirmed payment");
         } else {
           log("⚠️ User ID not found, cannot clear cart");
+          // Don't throw - payment was successful
         }
       }
     } catch (e) {
-      log("❌ Error clearing cart: $e");
-      // Don't throw - payment was successful even if cart clear failed
+      log("❌ Error in payment confirmation: $e");
+      log("   This is a CRITICAL error - payment may have been made but not confirmed");
+      rethrow;
     }
   }
 
   void _openUpiApp(String deepLink) async {
-    log('🚀 Opening UPI app with deep link: $deepLink');
+    log('══════════════════════════════════════════');
+    log('🚀 Opening UPI app');
+    log('   Deep link: $deepLink');
+    log('   Transaction Ref: $_currentTransactionRef');
+    log('══════════════════════════════════════════');
 
     setState(() {
       _isProcessing = true;
@@ -268,6 +294,7 @@ class _PaymentScreenState extends State<PaymentScreen>
             );
           }
 
+          // Start checking payment status
           _startAutoStatusChecking();
         } else {
           throw Exception('Could not launch UPI app');
@@ -305,17 +332,17 @@ class _PaymentScreenState extends State<PaymentScreen>
   }
 
   void _startAutoStatusChecking() {
-    log('🔄 Starting auto status checking...');
+    log('══════════════════════════════════════════');
+    log('🔄 Starting auto status checking');
+    log('   Check interval: 3 seconds');
+    log('   Max attempts: $_maxStatusCheckAttempts');
+    log('══════════════════════════════════════════');
 
     _statusCheckTimer?.cancel();
 
-    _statusCheckTimer = Timer.periodic(const Duration(seconds: 3), (
-      timer,
-    ) async {
+    _statusCheckTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
       _statusCheckAttempts++;
-      log(
-        '🔍 Status check attempt: $_statusCheckAttempts/$_maxStatusCheckAttempts',
-      );
+      log('🔍 Status check attempt: $_statusCheckAttempts/$_maxStatusCheckAttempts');
 
       if (_statusCheckAttempts > _maxStatusCheckAttempts) {
         timer.cancel();
@@ -335,23 +362,36 @@ class _PaymentScreenState extends State<PaymentScreen>
   }
 
   Future<void> _checkPaymentStatus({bool isAutoCheck = false}) async {
-    if (_currentTransactionRef == null) return;
+    if (_currentTransactionRef == null) {
+      log("⚠️ Cannot check status - transaction ref is null");
+      return;
+    }
 
-    log(
-      '🔍 Checking payment status for: $_currentTransactionRef (auto: $isAutoCheck)',
-    );
+    log('══════════════════════════════════════════');
+    log('🔍 Checking payment status');
+    log('   Transaction Ref: $_currentTransactionRef');
+    log('   Is Auto Check: $isAutoCheck');
+    log('   Attempt: $_statusCheckAttempts');
+    log('══════════════════════════════════════════');
 
     try {
       final status = await ApiService.getTransactionStatus(
         _currentTransactionRef!,
       );
 
-      log('📊 Payment status received: $status');
+      log('📊 Payment status received from backend: "$status"');
 
-      if (!mounted) return;
+      if (!mounted) {
+        log('⚠️ Widget not mounted, aborting status check');
+        return;
+      }
 
+      // Handle different statuses
       if (status == 'success') {
-        log('✅ Payment successful!');
+        log('══════════════════════════════════════════');
+        log('✅ PAYMENT SUCCESSFUL!');
+        log('══════════════════════════════════════════');
+        
         _statusCheckTimer?.cancel();
 
         setState(() {
@@ -359,18 +399,34 @@ class _PaymentScreenState extends State<PaymentScreen>
           _isWaitingForPayment = false;
         });
 
-        // ✅ ONLY confirm payment (and clear cart) if status is 'success'
+        // Update transaction status
+        try {
+          await _updateTransactionStatus(
+            _currentTransactionRef!,
+            'success',
+            'Payment completed successfully',
+          );
+        } catch (e) {
+          log('⚠️ Failed to update transaction status to success: $e');
+          // Continue anyway - status is already success from backend
+        }
+
+        // Confirm payment and clear cart
         try {
           await _confirmPaymentToBackend(_currentTransactionRef!);
           _confettiController.play();
           _showSuccessDialog();
         } catch (e) {
           log('❌ Payment confirmation failed: $e');
-          // ❌ DO NOT CLEAR CART ON CONFIRMATION ERROR
-          _showFailureDialog();
+          log('   This is critical - payment was made but confirmation failed');
+          _showErrorDialog('Payment received but confirmation failed. Please contact support with transaction ID: $_currentTransactionRef');
         }
+        
       } else if (status == 'failed') {
-        log('❌ Payment failed');
+        log('══════════════════════════════════════════');
+        log('❌ PAYMENT FAILED');
+        log('══════════════════════════════════════════');
+        
         _statusCheckTimer?.cancel();
 
         setState(() {
@@ -378,18 +434,22 @@ class _PaymentScreenState extends State<PaymentScreen>
           _isWaitingForPayment = false;
         });
 
-        await _updateTransactionStatus(
-          _currentTransactionRef!,
-          'failed',
-          'Payment failed',
-        );
+        try {
+          await _updateTransactionStatus(
+            _currentTransactionRef!,
+            'failed',
+            'Payment failed',
+          );
+        } catch (e) {
+          log('⚠️ Failed to update transaction status to failed: $e');
+        }
 
-        // ❌ DO NOT CLEAR CART ON FAILURE!
         _showFailureDialog();
+        
       } else if (status == 'pending') {
         log('⏳ Payment still pending...');
-        // ❌ DO NOT CLEAR CART WHILE PENDING!
-        if (!isAutoCheck) {
+        
+        if (!isAutoCheck && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
@@ -400,17 +460,78 @@ class _PaymentScreenState extends State<PaymentScreen>
             ),
           );
         }
+      } else {
+        log('⚠️ Unknown status received: "$status"');
+        
+        if (!isAutoCheck && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Unknown payment status: $status',
+                style: GoogleFonts.poppins(fontSize: 13),
+              ),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
       }
     } catch (e) {
-      log('❌ Status check error: $e');
-      // ❌ DO NOT CLEAR CART ON ERROR!
+      log('══════════════════════════════════════════');
+      log('❌ STATUS CHECK ERROR');
+      log('   Error: $e');
+      log('   Stack trace will be printed if available');
+      log('══════════════════════════════════════════');
+      
       if (!isAutoCheck && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error checking status: ${e.toString()}'),
+            content: Text(
+              'Error checking status: ${e.toString()}',
+              style: GoogleFonts.poppins(fontSize: 13),
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  // Add manual payment confirmation option
+  Future<void> _manuallyConfirmPayment() async {
+    log('══════════════════════════════════════════');
+    log('🔧 MANUAL PAYMENT CONFIRMATION');
+    log('   Transaction Ref: $_currentTransactionRef');
+    log('══════════════════════════════════════════');
+
+    setState(() => _isProcessing = true);
+
+    try {
+      // First update transaction to success
+      await _updateTransactionStatus(
+        _currentTransactionRef!,
+        'success',
+        'Manually confirmed by user',
+      );
+
+      // Then confirm payment
+      await _confirmPaymentToBackend(_currentTransactionRef!);
+      
+      _confettiController.play();
+      _showSuccessDialog();
+    } catch (e) {
+      log('❌ Manual confirmation failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to confirm payment: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
       }
     }
   }
@@ -459,47 +580,14 @@ class _PaymentScreenState extends State<PaymentScreen>
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
-              Row(
+              Column(
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () async {
-                        Navigator.of(context).pop();
-
-                        // ✅ Mark as failed but DON'T clear cart
-                        await _updateTransactionStatus(
-                          _currentTransactionRef!,
-                          'failed',
-                          'User confirmed payment not completed',
-                        );
-
-                        // ❌ DO NOT CLEAR CART HERE!
-                        _showFailureDialog();
-                      },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        side: const BorderSide(color: Colors.red, width: 2),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        'Not Paid',
-                        style: GoogleFonts.poppins(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
+                  SizedBox(
+                    width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () {
                         Navigator.of(context).pop();
                         setState(() => _isProcessing = true);
-                        // ❌ DO NOT CLEAR CART - just check status again
                         _checkPaymentStatus(isAutoCheck: false);
                       },
                       style: ElevatedButton.styleFrom(
@@ -519,6 +607,63 @@ class _PaymentScreenState extends State<PaymentScreen>
                       ),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _manuallyConfirmPayment();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'I Paid - Confirm Manually',
+                        style: GoogleFonts.poppins(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () async {
+                        Navigator.of(context).pop();
+
+                        await _updateTransactionStatus(
+                          _currentTransactionRef!,
+                          'failed',
+                          'User confirmed payment not completed',
+                        );
+
+                        _showFailureDialog();
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: const BorderSide(color: Colors.red, width: 2),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Not Paid',
+                        style: GoogleFonts.poppins(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -528,13 +673,46 @@ class _PaymentScreenState extends State<PaymentScreen>
     );
   }
 
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.error, color: Colors.orange),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Error',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          message,
+          style: GoogleFonts.poppins(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pop();
+            },
+            child: Text('OK', style: GoogleFonts.poppins()),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
-      // ✅ INTERCEPT BACK BUTTON
       onWillPop: () async {
         if (_isWaitingForPayment) {
-          // Show warning if payment is in progress
           final shouldPop = await showDialog<bool>(
             context: context,
             builder: (context) => AlertDialog(
@@ -553,7 +731,6 @@ class _PaymentScreenState extends State<PaymentScreen>
                 ),
                 TextButton(
                   onPressed: () {
-                    // ✅ Cancel status checking
                     _statusCheckTimer?.cancel();
                     Navigator.pop(context, true);
                   },
@@ -569,7 +746,6 @@ class _PaymentScreenState extends State<PaymentScreen>
           return shouldPop ?? false;
         }
 
-        // ✅ Safe to go back if not waiting for payment
         log("⬅️ User navigating back from payment screen");
         log("🛡️ Payment not confirmed - cart will be preserved");
         return true;
@@ -584,6 +760,30 @@ class _PaymentScreenState extends State<PaymentScreen>
           backgroundColor: Colors.deepPurple,
           foregroundColor: Colors.white,
           centerTitle: true,
+          actions: [
+            // Add debug button in development
+            IconButton(
+              icon: const Icon(Icons.bug_report),
+              onPressed: () {
+                log('══════════════════════════════════════════');
+                log('🐛 DEBUG INFO');
+                log('   Transaction Ref: $_currentTransactionRef');
+                log('   Is Processing: $_isProcessing');
+                log('   Is Waiting: $_isWaitingForPayment');
+                log('   Payment Confirmed: $_paymentConfirmed');
+                log('   Check Attempts: $_statusCheckAttempts');
+                log('   Order Details: ${widget.orderDetails}');
+                log('══════════════════════════════════════════');
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Debug info printed to console'),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
         body: SafeArea(
           child: Center(
@@ -621,7 +821,8 @@ class _PaymentScreenState extends State<PaymentScreen>
     );
   }
 
-  // ... (rest of the build methods remain the same - _buildAmountCard, _buildPaymentCard, etc.)
+  // [Rest of the widget methods remain the same...]
+  // Copy all the _buildAmountCard, _buildPaymentCard, etc. methods from your original file
 
   Widget _buildAmountCard() {
     return Container(
@@ -655,21 +856,14 @@ class _PaymentScreenState extends State<PaymentScreen>
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.verified_user,
-                      size: 12,
-                      color: Colors.white,
-                    ),
+                    const Icon(Icons.verified_user, size: 12, color: Colors.white),
                     const SizedBox(width: 4),
                     Text(
                       'Secured',
@@ -722,143 +916,13 @@ class _PaymentScreenState extends State<PaymentScreen>
                 Expanded(
                   child: Text(
                     'Complete payment to confirm order',
-                    style: GoogleFonts.poppins(
-                      color: Colors.white,
-                      fontSize: 11,
-                    ),
+                    style: GoogleFonts.poppins(color: Colors.white, fontSize: 11),
                   ),
                 ),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  // ... (include all other widget methods from your original file)
-  // _buildPaymentCard, _buildUpiAppsGrid, _buildUpiAppCard,
-  // _buildTransactionIdCard, _buildInstructionsCard, _buildWaitingCard,
-  // _instructionStep, _showSuccessDialog, _showFailureDialog
-
-  void _showFailureDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: 1),
-                duration: const Duration(milliseconds: 600),
-                builder: (context, double value, child) {
-                  return Transform.scale(
-                    scale: value,
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [Colors.red.shade400, Colors.red.shade600],
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.close,
-                        size: 60,
-                        color: Colors.white,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Payment Failed',
-                style: GoogleFonts.poppins(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.red.shade700,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Payment was not completed. Please try again.',
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  color: Colors.grey.shade600,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () {
-                        // ❌ DO NOT CLEAR CART!
-                        Navigator.of(context).pop(); // Close dialog
-                        Navigator.of(context).pop(); // Go back to cart/address
-                      },
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: BorderSide(color: Colors.grey.shade300),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        'Go Back',
-                        style: GoogleFonts.poppins(
-                          color: Colors.grey.shade700,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-
-                        // ❌ DO NOT CLEAR CART!
-                        // Just reset for retry
-                        setState(() {
-                          _currentTransactionRef = DateTime.now()
-                              .millisecondsSinceEpoch
-                              .toString();
-                          _isProcessing = false;
-                          _isWaitingForPayment = false;
-                          _statusCheckAttempts = 0;
-                        });
-                        _createPendingTransaction(_currentTransactionRef!);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepPurple,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        'Retry Payment',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -938,10 +1002,7 @@ class _PaymentScreenState extends State<PaymentScreen>
               children: [
                 Text(
                   'Or pay manually to UPI ID:',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
+                  style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[600]),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -963,10 +1024,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                         );
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(
-                              'UPI ID Copied!',
-                              style: GoogleFonts.poppins(fontSize: 13),
-                            ),
+                            content: Text('UPI ID Copied!', style: GoogleFonts.poppins(fontSize: 13)),
                             duration: const Duration(seconds: 2),
                           ),
                         );
@@ -1180,10 +1238,7 @@ class _PaymentScreenState extends State<PaymentScreen>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '$num.',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
-          ),
+          Text('$num.', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
           const SizedBox(width: 8),
           Expanded(child: Text(text, style: GoogleFonts.poppins(fontSize: 13))),
         ],
@@ -1191,7 +1246,6 @@ class _PaymentScreenState extends State<PaymentScreen>
     );
   }
 
-  // ✅ SUCCESS DIALOG
   void _showSuccessDialog() {
     showDialog(
       context: context,
@@ -1216,17 +1270,10 @@ class _PaymentScreenState extends State<PaymentScreen>
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             gradient: LinearGradient(
-                              colors: [
-                                Colors.green.shade400,
-                                Colors.green.shade600,
-                              ],
+                              colors: [Colors.green.shade400, Colors.green.shade600],
                             ),
                           ),
-                          child: const Icon(
-                            Icons.check_circle,
-                            size: 60,
-                            color: Colors.white,
-                          ),
+                          child: const Icon(Icons.check_circle, size: 60, color: Colors.white),
                         ),
                       );
                     },
@@ -1244,18 +1291,12 @@ class _PaymentScreenState extends State<PaymentScreen>
                   const SizedBox(height: 12),
                   Text(
                     'Your order has been confirmed',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey.shade600),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.green.shade50,
                       borderRadius: BorderRadius.circular(20),
@@ -1273,27 +1314,19 @@ class _PaymentScreenState extends State<PaymentScreen>
                     const SizedBox(height: 12),
                     Text(
                       'Transaction ID: $_currentTransactionRef',
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        color: Colors.grey.shade500,
-                      ),
+                      style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey.shade500),
                     ),
                   ],
                   const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: () {
-                      Navigator.of(context).pop(); // Close dialog
-                      Navigator.of(context).pop(); // Go back to previous screen
+                      Navigator.of(context).pop();
+                      Navigator.of(context).pop();
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 40,
-                        vertical: 16,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
                     child: Text(
                       'Back to Home',
@@ -1324,6 +1357,113 @@ class _PaymentScreenState extends State<PaymentScreen>
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showFailureDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: 1),
+                duration: const Duration(milliseconds: 600),
+                builder: (context, double value, child) {
+                  return Transform.scale(
+                    scale: value,
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: [Colors.red.shade400, Colors.red.shade600],
+                        ),
+                      ),
+                      child: const Icon(Icons.close, size: 60, color: Colors.white),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Payment Failed',
+                style: GoogleFonts.poppins(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.red.shade700,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Payment was not completed. Please try again.',
+                style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey.shade600),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        Navigator.of(context).pop();
+                      },
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: BorderSide(color: Colors.grey.shade300),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Text(
+                        'Go Back',
+                        style: GoogleFonts.poppins(
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+
+                        setState(() {
+                          _currentTransactionRef =
+                              DateTime.now().millisecondsSinceEpoch.toString();
+                          _isProcessing = false;
+                          _isWaitingForPayment = false;
+                          _statusCheckAttempts = 0;
+                        });
+                        _createPendingTransaction(_currentTransactionRef!);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.deepPurple,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Text(
+                        'Retry Payment',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
