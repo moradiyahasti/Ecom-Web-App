@@ -240,6 +240,7 @@ class _PremiumSplashViewState extends State<PremiumSplashView>
                       size: 50,
                     ),
                   ),
+                  Text("Sonali Jivani")
                 ],
               ),
             ),
