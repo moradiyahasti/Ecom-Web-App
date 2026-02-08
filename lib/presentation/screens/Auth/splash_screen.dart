@@ -283,7 +283,9 @@ class _PremiumSplashViewState extends State<PremiumSplashView>
                 fontWeight: FontWeight.w500,
               ),
             ),
+                        const SizedBox(height: 12),
 
+Text("Sonali Jivani"),
             const SizedBox(height: 12),
 
             // Features
