@@ -1,17 +1,14 @@
-import 'dart:async';
 import 'dart:developer';
-import 'dart:io';
 import 'package:demo/data/services/api_service.dart';
 import 'package:demo/data/providers/cart_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:upi_pay/upi_pay.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:confetti/confetti.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:async';
 
 class PaymentScreen extends StatefulWidget {
   final double totalAmount;
@@ -24,46 +21,36 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen>
-    with TickerProviderStateMixin, WidgetsBindingObserver {
-  String? _upiAddrError;
+    with TickerProviderStateMixin {
   final _upiAddressController = TextEditingController();
   final _amountController = TextEditingController();
-  final _upiPayPlugin = UpiPay();
-  List<ApplicationMeta>? _apps;
 
   String? _currentTransactionRef;
   bool _isProcessing = false;
+  bool _isWaitingForPayment = false;
+
+  // ✅ CRITICAL: Track if payment was actually confirmed
+  bool _paymentConfirmed = false;
+
   final ConfettiController _confettiController = ConfettiController(
     duration: const Duration(seconds: 3),
   );
 
   late AnimationController _slideController;
   late AnimationController _fadeController;
-  late AnimationController _pulseController;
   late Animation<Offset> _slideAnimation;
   late Animation<double> _fadeAnimation;
-  late Animation<double> _pulseAnimation;
 
-  // ✅ Payment verification tracking
-  DateTime? _paymentInitiatedTime;
-  bool _isWaitingForPayment = false;
-  bool _hasReturnedFromUpiApp = false;
-
-  // ✅ For web visibility detection
-  String? _visibilityListenerKey;
+  Timer? _statusCheckTimer;
+  int _statusCheckAttempts = 0;
+  static const int _maxStatusCheckAttempts = 20;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
 
-    _amountController.text = /*  widget.totalAmount > 0
-        ? widget.totalAmount.toStringAsFixed(2)
-        : */
-        "1.00";
-
+    _amountController.text = "1.00";
     _upiAddressController.text = "sawan00meena@ucobank";
-
     _currentTransactionRef = DateTime.now().millisecondsSinceEpoch.toString();
 
     _slideController = AnimationController(
@@ -74,10 +61,6 @@ class _PaymentScreenState extends State<PaymentScreen>
       duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
-    _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    )..repeat(reverse: true);
 
     _slideAnimation =
         Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
@@ -89,214 +72,37 @@ class _PaymentScreenState extends State<PaymentScreen>
       end: 1.0,
     ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeIn));
 
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-
     _slideController.forward();
     _fadeController.forward();
 
-    if (kIsWeb) {
-      _createPendingTransaction(_currentTransactionRef!);
-      _setupWebVisibilityListener();
-    }
-
-    if (!kIsWeb && Platform.isAndroid) {
-      Future.delayed(Duration.zero, () async {
-        try {
-          _apps = await _upiPayPlugin.getInstalledUpiApplications(
-            statusType: UpiApplicationDiscoveryAppStatusType.all,
-          );
-          setState(() {});
-        } catch (e) {
-          log('Error loading UPI apps: $e');
-          setState(() {
-            _apps = [];
-          });
-        }
-      });
-    }
+    _createPendingTransaction(_currentTransactionRef!);
   }
-
-  // @override
-  // void dispose() {
-  //   WidgetsBinding.instance.removeObserver(this);
-  //   _amountController.dispose();
-  //   _upiAddressController.dispose();
-  //   _slideController.dispose();
-  //   _fadeController.dispose();
-  //   _pulseController.dispose();
-  //   _confettiController.dispose();
-  //   _removeWebVisibilityListener();
-  //   super.dispose();
-  // }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    // ✅ CRITICAL: Cancel status checking timer
+    _statusCheckTimer?.cancel();
+
+    // ✅ SAFETY CHECK: Log if payment wasn't confirmed
+    if (!_paymentConfirmed) {
+      log("⚠️ Payment screen disposed WITHOUT payment confirmation");
+      log("🛡️ Cart will be preserved (NOT cleared)");
+    } else {
+      log("✅ Payment screen disposed AFTER successful payment confirmation");
+    }
+
     _amountController.dispose();
     _upiAddressController.dispose();
     _slideController.dispose();
     _fadeController.dispose();
-    _pulseController.dispose();
     _confettiController.dispose();
-    _removeWebVisibilityListener();
-
-    // ✅ Stop polling timer
-    _paymentCheckTimer?.cancel();
-    _paymentCheckTimer = null;
 
     super.dispose();
   }
 
-  // ✅ Setup web-specific visibility detection
-  void _setupWebVisibilityListener() {
-    if (!kIsWeb) return;
-
-    // Use browser visibility API for web
-    _visibilityListenerKey =
-        'payment_visibility_${DateTime.now().millisecondsSinceEpoch}';
-
-    // Listen for page visibility changes
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        log('✅ Web visibility listener setup');
-      }
-    });
-  }
-
-  void _removeWebVisibilityListener() {
-    if (!kIsWeb) return;
-    log('🧹 Removing web visibility listener');
-  }
-
-  // ✅ Detect when user returns from UPI app
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-
-    if (state == AppLifecycleState.resumed && _isWaitingForPayment) {
-      _hasReturnedFromUpiApp = true;
-      log('✅ User returned from UPI app - checking payment status...');
-      _checkPaymentStatus();
-    }
-  }
-
-  // ✅ FIX 6: Update _checkPaymentStatus to handle both success and failure clearly
-  Future<void> _checkPaymentStatus() async {
-    if (_currentTransactionRef == null) return;
-
-    log('🔍 Manual status check for: $_currentTransactionRef');
-    setState(() => _isProcessing = true);
-
-    // Wait briefly to allow backend to update
-    await Future.delayed(const Duration(seconds: 2));
-
-    try {
-      final status = await ApiService.getTransactionStatus(
-        _currentTransactionRef!,
-      );
-
-      log('📊 Manual check result: $status');
-
-      if (mounted) {
-        setState(() {
-          _isProcessing = false;
-          _isWaitingForPayment = false;
-        });
-
-        if (status == 'success') {
-          log('✅ Payment confirmed successful');
-          await _confirmPaymentToBackend(_currentTransactionRef!);
-          _confettiController.play();
-          _showSuccessDialog();
-        } else if (status == 'failed') {
-          log('❌ Payment confirmed failed');
-          _showFailureDialog();
-        } else {
-          // Still pending
-          log('⏳ Payment still pending');
-          _showPaymentVerificationDialog();
-        }
-      }
-    } catch (e) {
-      log('❌ Status check error: $e');
-      if (mounted) {
-        setState(() {
-          _isProcessing = false;
-          _isWaitingForPayment = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error checking status: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  /*   // ✅ Check payment status after return
-  Future<void> _checkPaymentStatus() async {
-    if (_currentTransactionRef == null) return;
-
-    log('🔍 Checking payment status for: $_currentTransactionRef');
-    setState(() => _isProcessing = true);
-
-    // Wait 3 seconds to allow backend to receive webhook/callback
-    await Future.delayed(const Duration(seconds: 3));
-
-    try {
-      // Call your API to check transaction status
-      final status = await ApiService.getTransactionStatus(
-        _currentTransactionRef!,
-      );
-
-      log('📊 Payment status received: $status');
-
-      if (mounted) {
-        setState(() {
-          _isProcessing = false;
-          _isWaitingForPayment = false;
-          _hasReturnedFromUpiApp = false;
-        });
-
-        if (status == 'success') {
-          log('✅ Payment successful!');
-          await _confirmPaymentToBackend(_currentTransactionRef!);
-          _confettiController.play();
-          _showSuccessDialog();
-        } else if (status == 'pending') {
-          log('⏳ Payment still pending - showing verification dialog');
-          _showPaymentVerificationDialog();
-        } else {
-          log('❌ Payment failed or not completed');
-          await _updateTransactionStatus(
-            _currentTransactionRef!,
-            'failed',
-            'User returned without completing payment',
-          );
-          _showFailureDialog();
-        }
-      }
-    } catch (e) {
-      log('❌ Status check error: $e');
-      if (mounted) {
-        setState(() {
-          _isProcessing = false;
-          _isWaitingForPayment = false;
-          _hasReturnedFromUpiApp = false;
-        });
-        // If there's an error checking status, show verification dialog
-        _showPaymentVerificationDialog();
-      }
-    }
-  }
- */
   String get _upiString {
     return 'upi://pay?pa=${_upiAddressController.text}'
-        '&pn=Test%20Merchant'
+        '&pn=ShreeNails'
         '&am=1'
         '&cu=INR'
         '&tn=Order%20Payment'
@@ -305,7 +111,7 @@ class _PaymentScreenState extends State<PaymentScreen>
 
   String _getUpiDeepLink(String scheme) {
     return '$scheme?pa=${_upiAddressController.text}'
-        '&pn=Test%20Merchant'
+        '&pn=ShreeNails'
         '&am=1'
         '&cu=INR'
         '&tn=Order%20Payment'
@@ -355,12 +161,16 @@ class _PaymentScreenState extends State<PaymentScreen>
     }
   }
 
+  // ✅ CONFIRM PAYMENT TO BACKEND & CLEAR CART
+  // 🔥 THIS IS THE *ONLY* PLACE WHERE CART SHOULD BE CLEARED!
   Future<void> _confirmPaymentToBackend(String transactionRef) async {
     final orderId = widget.orderDetails?["order_id"];
 
     if (orderId == null) {
       throw Exception("Order ID missing");
     }
+
+    log("📝 Confirming payment to backend...");
 
     final success = await ApiService.confirmPayment(
       orderId: orderId,
@@ -372,189 +182,53 @@ class _PaymentScreenState extends State<PaymentScreen>
       throw Exception("Backend payment confirmation failed");
     }
 
-    try {
-      if (mounted) {
-        await context.read<CartProvider>().clearCart(1);
-        log("🗑️ Cart cleared after successful payment");
-      }
-    } catch (e) {
-      log("⚠️ Error clearing cart: $e");
-    }
-  }
+    log("✅ Backend payment confirmed successfully");
 
-  Future<void> _onTap(ApplicationMeta app) async {
-    final err = _validateUpiAddress(_upiAddressController.text);
-    if (err != null) {
-      setState(() => _upiAddrError = err);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(err), backgroundColor: Colors.red),
-        );
-      }
-      return;
-    }
+    // ✅ SET FLAG: Payment is now confirmed
+    _paymentConfirmed = true;
+    log("🎯 _paymentConfirmed set to TRUE");
 
-    setState(() {
-      _upiAddrError = null;
-      _isProcessing = true;
-    });
-
-    final transactionRef = DateTime.now().millisecondsSinceEpoch.toString();
-    _currentTransactionRef = transactionRef;
-
-    await _createPendingTransaction(transactionRef);
+    // 🔥 ONLY CLEAR CART AFTER:
+    // 1. Payment status is 'success' from backend
+    // 2. Backend has confirmed the payment
+    // 3. Widget is still mounted
+    // 4. We have user ID
 
     try {
-      final result = await _upiPayPlugin.initiateTransaction(
-        amount: "1",
-        app: app.upiApplication,
-        receiverName: 'Test Merchant',
-        receiverUpiAddress: _upiAddressController.text,
-        transactionRef: transactionRef,
-        transactionNote: 'Order Payment',
-      );
-
-      log("UPI Result: $result");
-
-      final isSuccess = result.toString().toLowerCase().contains('success');
-      _handlePaymentResult(isSuccess, transactionRef, result.toString());
-    } catch (e) {
-      log("UPI Error: $e");
-      setState(() => _isProcessing = false);
-      _handlePaymentResult(false, transactionRef, e.toString());
-    }
-  }
-
-  void _handlePaymentResult(
-    bool isSuccess,
-    String transactionRef,
-    String upiResponse,
-  ) async {
-    setState(() => _isProcessing = false);
-
-    if (!isSuccess) {
-      await _updateTransactionStatus(transactionRef, "failed", upiResponse);
       if (mounted) {
-        _showFailureDialog();
-      }
-      return;
-    }
+        final userId = widget.orderDetails?["user_id"];
+        if (userId != null) {
+          log("═══════════════════════════════════════════");
+          log("🗑️ PAYMENT CONFIRMED - Now clearing cart");
+          log("User ID: $userId");
+          log("Transaction: $transactionRef");
+          log("═══════════════════════════════════════════");
 
-    try {
-      await _updateTransactionStatus(transactionRef, "success", upiResponse);
-      await _confirmPaymentToBackend(transactionRef);
+          // ✅ THIS IS THE ONLY PLACE WHERE CART SHOULD BE CLEARED!
+          await context.read<CartProvider>().clearCart(userId);
 
-      if (mounted) {
-        _confettiController.play();
-        _showSuccessDialog();
-      }
-    } catch (e) {
-      log("Backend Error: $e");
-      if (mounted) {
-        _showPaymentSuccessButBackendFailDialog(transactionRef);
-      }
-    }
-  }
-
-  Timer? _paymentCheckTimer;
-  int _pollCount = 0;
-  static const int maxPollAttempts = 20; // 20 attempts = ~60 seconds
-
-  // ✅ Open UPI App and start monitoring
-  /* void _openUpiApp(String deepLink) async {
-    log('🚀 Opening UPI app with deep link: $deepLink');
-
-    setState(() {
-      _isProcessing = true;
-      _isWaitingForPayment = true;
-    });
-
-    try {
-      final uri = Uri.parse(deepLink);
-      _paymentInitiatedTime = DateTime.now();
-
-      try {
-        log('📱 Attempting to launch UPI app...');
-        final launched = await launchUrl(
-          uri,
-          mode: LaunchMode.externalApplication,
-        );
-
-        if (launched) {
-          log('✅ UPI app launched successfully');
-          // Show a brief loading message
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation(Colors.white),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text(
-                        'Opening UPI app... Complete payment and return',
-                      ),
-                    ),
-                  ],
-                ),
-                backgroundColor: Colors.deepPurple,
-                duration: const Duration(seconds: 3),
-              ),
-            );
-          }
-
-          // Keep processing state while waiting for return
-          setState(() => _isProcessing = true);
+          log("✅ Cart cleared successfully after confirmed payment");
         } else {
-          throw Exception('Could not launch UPI app');
-        }
-      } catch (e) {
-        log('❌ Could not launch URL: $e');
-        _isWaitingForPayment = false;
-        if (mounted) {
-          setState(() => _isProcessing = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('App not installed. Please scan QR code instead.'),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 3),
-            ),
-          );
+          log("⚠️ User ID not found, cannot clear cart");
         }
       }
     } catch (e) {
-      log('❌ Error opening UPI app: $e');
-      _isWaitingForPayment = false;
-      if (mounted) {
-        setState(() => _isProcessing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      log("❌ Error clearing cart: $e");
+      // Don't throw - payment was successful even if cart clear failed
     }
   }
- */
+
   void _openUpiApp(String deepLink) async {
     log('🚀 Opening UPI app with deep link: $deepLink');
 
     setState(() {
       _isProcessing = true;
       _isWaitingForPayment = true;
+      _statusCheckAttempts = 0;
     });
 
     try {
       final uri = Uri.parse(deepLink);
-      _paymentInitiatedTime = DateTime.now();
 
       try {
         log('📱 Attempting to launch UPI app...');
@@ -580,9 +254,10 @@ class _PaymentScreenState extends State<PaymentScreen>
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Opening UPI app... Complete payment and return',
+                        'Complete payment in UPI app...',
+                        style: GoogleFonts.poppins(fontSize: 13),
                       ),
                     ),
                   ],
@@ -593,13 +268,7 @@ class _PaymentScreenState extends State<PaymentScreen>
             );
           }
 
-          // ✅ FIX: Start polling for payment status on web
-          if (kIsWeb) {
-            _startPaymentPolling();
-          } else {
-            // Mobile will use lifecycle detection
-            setState(() => _isProcessing = true);
-          }
+          _startAutoStatusChecking();
         } else {
           throw Exception('Could not launch UPI app');
         }
@@ -609,10 +278,13 @@ class _PaymentScreenState extends State<PaymentScreen>
         if (mounted) {
           setState(() => _isProcessing = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('App not installed. Please scan QR code instead.'),
+            SnackBar(
+              content: Text(
+                'App not installed. Please scan QR code instead.',
+                style: GoogleFonts.poppins(fontSize: 13),
+              ),
               backgroundColor: Colors.orange,
-              duration: Duration(seconds: 3),
+              duration: const Duration(seconds: 3),
             ),
           );
         }
@@ -632,198 +304,118 @@ class _PaymentScreenState extends State<PaymentScreen>
     }
   }
 
-  // ✅ FIX 3: Add polling function for web
-  void _startPaymentPolling() {
-    if (!kIsWeb) return;
+  void _startAutoStatusChecking() {
+    log('🔄 Starting auto status checking...');
 
-    _pollCount = 0;
-    log('🔄 Starting payment status polling...');
+    _statusCheckTimer?.cancel();
 
-    // Poll every 3 seconds
-    _paymentCheckTimer = Timer.periodic(const Duration(seconds: 3), (
+    _statusCheckTimer = Timer.periodic(const Duration(seconds: 3), (
       timer,
     ) async {
-      _pollCount++;
-      log('🔍 Poll attempt $_pollCount/$maxPollAttempts');
+      _statusCheckAttempts++;
+      log(
+        '🔍 Status check attempt: $_statusCheckAttempts/$_maxStatusCheckAttempts',
+      );
 
-      if (_pollCount > maxPollAttempts) {
-        // Stop polling after max attempts
+      if (_statusCheckAttempts > _maxStatusCheckAttempts) {
         timer.cancel();
-        _paymentCheckTimer = null;
-
+        log('⏱️ Max attempts reached - stopping auto check');
         if (mounted && _isWaitingForPayment) {
-          log('⏱️ Polling timeout - showing verification dialog');
           setState(() {
             _isProcessing = false;
             _isWaitingForPayment = false;
           });
-          _showPaymentVerificationDialog();
+          _showPaymentTimeoutDialog();
         }
         return;
       }
 
-      try {
-        // Check payment status
-        final status = await ApiService.getTransactionStatus(
-          _currentTransactionRef!,
-        );
-
-        log('📊 Poll $_pollCount: Status = $status');
-
-        if (status == 'success') {
-          // Payment successful!
-          timer.cancel();
-          _paymentCheckTimer = null;
-
-          if (mounted) {
-            log('✅ Payment detected as successful via polling');
-            setState(() {
-              _isProcessing = false;
-              _isWaitingForPayment = false;
-            });
-
-            await _confirmPaymentToBackend(_currentTransactionRef!);
-            _confettiController.play();
-            _showSuccessDialog();
-          }
-        } else if (status == 'failed') {
-          // Payment failed
-          timer.cancel();
-          _paymentCheckTimer = null;
-
-          if (mounted) {
-            log('❌ Payment detected as failed via polling');
-            setState(() {
-              _isProcessing = false;
-              _isWaitingForPayment = false;
-            });
-            _showFailureDialog();
-          }
-        }
-        // If status is 'pending', continue polling
-      } catch (e) {
-        log('⚠️ Poll error: $e');
-        // Continue polling even on error
-      }
+      await _checkPaymentStatus(isAutoCheck: true);
     });
   }
 
-  // ✅ FIX 4: Stop polling when user manually confirms
-  /* void _showPaymentVerificationDialog() {
-  // Stop any active polling
-  _paymentCheckTimer?.cancel();
-  _paymentCheckTimer = null;
-  
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (context) => Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.help_outline,
-                size: 48,
-                color: Colors.orange,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Did you complete the payment?',
-              style: GoogleFonts.poppins(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'We couldn\'t verify your payment automatically. Please confirm if you completed the payment.',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: Colors.grey[600],
-                height: 1.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () async {
-                      Navigator.of(context).pop();
-                      await _updateTransactionStatus(
-                        _currentTransactionRef!,
-                        'failed',
-                        'User confirmed payment not completed',
-                      );
-                      _showFailureDialog();
-                    },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      side: const BorderSide(color: Colors.red, width: 2),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(
-                      'No',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      // Check status one more time
-                      _checkPaymentStatus();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.deepPurple,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(
-                      'Yes, Check Again',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
- */
+  Future<void> _checkPaymentStatus({bool isAutoCheck = false}) async {
+    if (_currentTransactionRef == null) return;
 
-  // ✅ Show verification dialog if status unclear
-  void _showPaymentVerificationDialog() {
+    log(
+      '🔍 Checking payment status for: $_currentTransactionRef (auto: $isAutoCheck)',
+    );
+
+    try {
+      final status = await ApiService.getTransactionStatus(
+        _currentTransactionRef!,
+      );
+
+      log('📊 Payment status received: $status');
+
+      if (!mounted) return;
+
+      if (status == 'success') {
+        log('✅ Payment successful!');
+        _statusCheckTimer?.cancel();
+
+        setState(() {
+          _isProcessing = false;
+          _isWaitingForPayment = false;
+        });
+
+        // ✅ ONLY confirm payment (and clear cart) if status is 'success'
+        try {
+          await _confirmPaymentToBackend(_currentTransactionRef!);
+          _confettiController.play();
+          _showSuccessDialog();
+        } catch (e) {
+          log('❌ Payment confirmation failed: $e');
+          // ❌ DO NOT CLEAR CART ON CONFIRMATION ERROR
+          _showFailureDialog();
+        }
+      } else if (status == 'failed') {
+        log('❌ Payment failed');
+        _statusCheckTimer?.cancel();
+
+        setState(() {
+          _isProcessing = false;
+          _isWaitingForPayment = false;
+        });
+
+        await _updateTransactionStatus(
+          _currentTransactionRef!,
+          'failed',
+          'Payment failed',
+        );
+
+        // ❌ DO NOT CLEAR CART ON FAILURE!
+        _showFailureDialog();
+      } else if (status == 'pending') {
+        log('⏳ Payment still pending...');
+        // ❌ DO NOT CLEAR CART WHILE PENDING!
+        if (!isAutoCheck) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Payment is still pending. Please wait...',
+                style: GoogleFonts.poppins(fontSize: 13),
+              ),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      log('❌ Status check error: $e');
+      // ❌ DO NOT CLEAR CART ON ERROR!
+      if (!isAutoCheck && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error checking status: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showPaymentTimeoutDialog() {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -841,14 +433,14 @@ class _PaymentScreenState extends State<PaymentScreen>
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.help_outline,
+                  Icons.access_time,
                   size: 48,
                   color: Colors.orange,
                 ),
               ),
               const SizedBox(height: 20),
               Text(
-                'Did you complete the payment?',
+                'Payment Status Unknown',
                 style: GoogleFonts.poppins(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
@@ -858,7 +450,7 @@ class _PaymentScreenState extends State<PaymentScreen>
               ),
               const SizedBox(height: 12),
               Text(
-                'We couldn\'t verify your payment automatically. Please confirm if you completed the payment.',
+                'We couldn\'t verify your payment. Did you complete it?',
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   color: Colors.grey[600],
@@ -873,11 +465,15 @@ class _PaymentScreenState extends State<PaymentScreen>
                     child: OutlinedButton(
                       onPressed: () async {
                         Navigator.of(context).pop();
+
+                        // ✅ Mark as failed but DON'T clear cart
                         await _updateTransactionStatus(
                           _currentTransactionRef!,
                           'failed',
                           'User confirmed payment not completed',
                         );
+
+                        // ❌ DO NOT CLEAR CART HERE!
                         _showFailureDialog();
                       },
                       style: OutlinedButton.styleFrom(
@@ -889,9 +485,9 @@ class _PaymentScreenState extends State<PaymentScreen>
                         ),
                       ),
                       child: Text(
-                        'No',
+                        'Not Paid',
                         style: GoogleFonts.poppins(
-                          fontSize: 16,
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -902,11 +498,12 @@ class _PaymentScreenState extends State<PaymentScreen>
                     child: ElevatedButton(
                       onPressed: () {
                         Navigator.of(context).pop();
-                        // Check status again
-                        _checkPaymentStatus();
+                        setState(() => _isProcessing = true);
+                        // ❌ DO NOT CLEAR CART - just check status again
+                        _checkPaymentStatus(isAutoCheck: false);
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepPurple,
+                        backgroundColor: Colors.green,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
@@ -916,7 +513,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                       child: Text(
                         'Check Again',
                         style: GoogleFonts.poppins(
-                          fontSize: 16,
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -933,408 +530,98 @@ class _PaymentScreenState extends State<PaymentScreen>
 
   @override
   Widget build(BuildContext context) {
-    if (kIsWeb) {
-      return _buildWebPaymentUI();
-    } else {
-      return _buildMobilePaymentUI();
-    }
-  }
-
-  Widget _buildWebPaymentUI() {
-    return Scaffold(
-      backgroundColor: const Color(0xffF8F9FB),
-      appBar: AppBar(
-        title: Text('Secure Payment', style: GoogleFonts.poppins()),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-      ),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 500),
-              child: Column(
-                children: [
-                  _buildAmountCard(),
-                  const SizedBox(height: 24),
-
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          'Pay Using UPI App',
-                          style: GoogleFonts.poppins(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.deepPurple,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Click on your preferred app',
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            color: Colors.grey,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        _buildWebUpiAppsGrid(),
-
-                        const SizedBox(height: 24),
-
-                        const Divider(),
-
-                        const SizedBox(height: 16),
-
-                        Text(
-                          'Or Scan QR Code',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.deepPurple,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.deepPurple,
-                              width: 2,
-                            ),
-                          ),
-                          child: QrImageView(
-                            data: _upiString,
-                            version: QrVersions.auto,
-                            size: 150,
-                            backgroundColor: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Or pay manually to UPI ID:',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _upiAddressController.text,
-                                style: GoogleFonts.robotoMono(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.copy, size: 20),
-                              onPressed: () {
-                                Clipboard.setData(
-                                  ClipboardData(
-                                    text: _upiAddressController.text,
-                                  ),
-                                );
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('UPI ID Copied!'),
-                                    duration: Duration(seconds: 2),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.purple[50],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.purple[200]!),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          'Transaction ID',
-                          style: GoogleFonts.poppins(
-                            fontSize: 11,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _currentTransactionRef ?? '',
-                          style: GoogleFonts.robotoMono(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.deepPurple,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.blue[50],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.blue[200]!),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.info,
-                              color: Colors.blue,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'How to Pay:',
-                              style: GoogleFonts.poppins(
-                                fontWeight: FontWeight.w600,
-                                color: Colors.blue[900],
-                                fontSize: 15,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        _instructionStep('1', 'Click on your UPI app above'),
-                        _instructionStep('2', 'Complete payment in the app'),
-                        _instructionStep(
-                          '3',
-                          'Return here - we\'ll verify automatically',
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  if (_isProcessing && _isWaitingForPayment) ...[
-                    const SizedBox(height: 24),
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.deepPurple[50],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.deepPurple[200]!),
-                      ),
-                      child: Column(
-                        children: [
-                          const CircularProgressIndicator(),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Waiting for payment...',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.deepPurple,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Complete payment in UPI app and return',
-                            style: GoogleFonts.poppins(
-                              fontSize: 13,
-                              color: Colors.grey[600],
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
+    return WillPopScope(
+      // ✅ INTERCEPT BACK BUTTON
+      onWillPop: () async {
+        if (_isWaitingForPayment) {
+          // Show warning if payment is in progress
+          final shouldPop = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text(
+                'Payment in Progress',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
               ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWebUpiAppsGrid() {
-    final upiApps = [
-      {
-        'name': 'Google Pay',
-        'scheme': _getUpiDeepLink('tez://upi/pay'),
-        'color': const Color(0xff4285F4),
-        'icon': Icons.payment,
-      },
-      {
-        'name': 'PhonePe',
-        'scheme': _getUpiDeepLink('phonepe://pay'),
-        'color': const Color(0xff5F259F),
-        'icon': Icons.phone_android,
-      },
-      {
-        'name': 'Paytm',
-        'scheme': _getUpiDeepLink('paytmmp://pay'),
-        'color': const Color(0xff00BAF2),
-        'icon': Icons.account_balance_wallet,
-      },
-      {
-        'name': 'BHIM',
-        'scheme': _getUpiDeepLink('upi://pay'),
-        'color': const Color(0xffED1C24),
-        'icon': Icons.account_balance,
-      },
-    ];
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 1.2,
-      ),
-      itemCount: upiApps.length,
-      itemBuilder: (context, index) {
-        final app = upiApps[index];
-        return _buildWebUpiAppCard(
-          name: app['name'] as String,
-          deepLink: app['scheme'] as String,
-          color: app['color'] as Color,
-          icon: app['icon'] as IconData,
-        );
-      },
-    );
-  }
-
-  Widget _buildWebUpiAppCard({
-    required String name,
-    required String deepLink,
-    required Color color,
-    required IconData icon,
-  }) {
-    return InkWell(
-      onTap: _isProcessing ? null : () => _openUpiApp(deepLink),
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.3), width: 2),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-              child: Icon(icon, size: 32, color: Colors.white),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              name,
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: color,
+              content: Text(
+                'Are you sure you want to go back? Your payment verification is still in progress.',
+                style: GoogleFonts.poppins(fontSize: 14),
               ),
-              textAlign: TextAlign.center,
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text('Stay', style: GoogleFonts.poppins()),
+                ),
+                TextButton(
+                  onPressed: () {
+                    // ✅ Cancel status checking
+                    _statusCheckTimer?.cancel();
+                    Navigator.pop(context, true);
+                  },
+                  child: Text(
+                    'Go Back',
+                    style: GoogleFonts.poppins(color: Colors.red),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Tap to Pay',
-              style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+          );
 
-  Widget _instructionStep(String num, String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '$num.',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+          return shouldPop ?? false;
+        }
+
+        // ✅ Safe to go back if not waiting for payment
+        log("⬅️ User navigating back from payment screen");
+        log("🛡️ Payment not confirmed - cart will be preserved");
+        return true;
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xffF8F9FB),
+        appBar: AppBar(
+          title: Text(
+            'Secure Payment',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
           ),
-          const SizedBox(width: 8),
-          Expanded(child: Text(text, style: GoogleFonts.poppins(fontSize: 13))),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMobilePaymentUI() {
-    return Scaffold(
-      backgroundColor: const Color(0xffF8F9FB),
-      appBar: AnimatedPaymentAppBar(),
-      body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: SlideTransition(
-            position: _slideAnimation,
+          backgroundColor: Colors.deepPurple,
+          foregroundColor: Colors.white,
+          centerTitle: true,
+        ),
+        body: SafeArea(
+          child: Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  _buildAmountCard(),
-                  const SizedBox(height: 20),
-                  _buildUpiSection(),
-                  const SizedBox(height: 100),
-                ],
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 500),
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: SlideTransition(
+                    position: _slideAnimation,
+                    child: Column(
+                      children: [
+                        _buildAmountCard(),
+                        const SizedBox(height: 24),
+                        _buildPaymentCard(),
+                        const SizedBox(height: 24),
+                        _buildTransactionIdCard(),
+                        const SizedBox(height: 24),
+                        _buildInstructionsCard(),
+
+                        if (_isWaitingForPayment) ...[
+                          const SizedBox(height: 24),
+                          _buildWaitingCard(),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
         ),
       ),
-      bottomSheet: _buildPaymentButton(),
     );
   }
+
+  // ... (rest of the build methods remain the same - _buildAmountCard, _buildPaymentCard, etc.)
 
   Widget _buildAmountCard() {
     return Container(
@@ -1343,7 +630,7 @@ class _PaymentScreenState extends State<PaymentScreen>
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xff6366F1), Color(0xff8B5CF6)],
+          colors: [Colors.deepPurple, Color(0xff8B5CF6)],
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
@@ -1449,535 +736,10 @@ class _PaymentScreenState extends State<PaymentScreen>
     );
   }
 
-  Widget _buildUpiSection() {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.deepPurple.shade50,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.account_balance,
-                  color: Colors.deepPurple,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'UPI Payment',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    'Pay using any UPI app',
-                    style: GoogleFonts.poppins(
-                      fontSize: 11,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          if (_upiAddrError != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 12, left: 4),
-              child: Text(
-                _upiAddrError!,
-                style: GoogleFonts.poppins(color: Colors.red, fontSize: 11),
-              ),
-            ),
-          if (_apps != null) ...[
-            const SizedBox(height: 20),
-            if (_apps!.isEmpty)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.orange[50],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.orange[200]!),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.warning, color: Colors.orange[700]),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'No UPI apps found. Please install GPay, PhonePe, or Paytm.',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: Colors.orange[900],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else ...[
-              Text(
-                'Choose Payment App',
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 80,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _apps!.length,
-                  itemBuilder: (context, index) {
-                    final app = _apps![index];
-                    return InkWell(
-                      onTap: () => _onTap(app),
-                      child: Container(
-                        width: 70,
-                        margin: const EdgeInsets.only(right: 12),
-                        child: Column(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade50,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey.shade200),
-                              ),
-                              child: app.iconImage(32),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              app.upiApplication.getAppName(),
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.poppins(fontSize: 10),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPaymentButton() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: ScaleTransition(
-          scale: _pulseAnimation,
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _isProcessing
-                  ? null
-                  : () {
-                      if (_apps == null || _apps!.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'No UPI apps found. Please install a UPI app.',
-                            ),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Please select a UPI app above to continue',
-                            ),
-                            backgroundColor: Colors.deepPurple,
-                          ),
-                        );
-                      }
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                elevation: 0,
-              ),
-              child: _isProcessing
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation(Colors.white),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Processing...',
-                          style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.lock, color: Colors.white, size: 18),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Pay ₹${_amountController.text}',
-                          style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  String? _validateUpiAddress(String value) {
-    if (value.isEmpty) return 'UPI VPA is required.';
-    if (value.split('@').length != 2) return 'Invalid UPI VPA';
-    return null;
-  }
-
-  void _showSuccessDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0, end: 1),
-                    duration: const Duration(milliseconds: 600),
-                    builder: (context, double value, child) {
-                      return Transform.scale(
-                        scale: value,
-                        child: Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.deepPurple.shade400,
-                                Colors.deepPurple,
-                              ],
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.check_circle,
-                            size: 60,
-                            color: Colors.white,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Payment Successful! 🎉',
-                    style: GoogleFonts.poppins(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.deepPurple,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Your order has been confirmed',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.deepPurple.shade50,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '₹ ${_amountController.text}',
-                      style: GoogleFonts.poppins(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.deepPurple,
-                      ),
-                    ),
-                  ),
-                  if (_currentTransactionRef != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      'Transaction ID: $_currentTransactionRef',
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      Navigator.of(context).pop();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.deepPurple,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 40,
-                        vertical: 16,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: Text(
-                      'Back to Home',
-                      style: GoogleFonts.poppins(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Positioned.fill(
-              child: IgnorePointer(
-                child: ConfettiWidget(
-                  confettiController: _confettiController,
-                  blastDirectionality: BlastDirectionality.explosive,
-                  numberOfParticles: 30,
-                  colors: const [
-                    Colors.deepPurple,
-                    Colors.blue,
-                    Colors.pink,
-                    Colors.orange,
-                    Colors.purple,
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showPaymentSuccessButBackendFailDialog(String transactionRef) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.orange.shade100,
-                ),
-                child: Icon(
-                  Icons.warning_rounded,
-                  size: 60,
-                  color: Colors.orange.shade700,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Payment Done! ⚠️',
-                style: GoogleFonts.poppins(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.orange.shade700,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Your payment was successful but we couldn\'t confirm it with our server. Please save this transaction ID:',
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  color: Colors.grey.shade600,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.orange.shade200),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      'Transaction ID',
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    SelectableText(
-                      transactionRef,
-                      style: GoogleFonts.robotoMono(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.orange.shade900,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Amount: ₹${_amountController.text}',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.orange.shade700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        Navigator.of(context).pop();
-                      },
-                      icon: const Icon(Icons.home, size: 18),
-                      label: Text(
-                        'Go Home',
-                        style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: BorderSide(color: Colors.grey.shade300),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        try {
-                          await _confirmPaymentToBackend(transactionRef);
-                          // ignore: use_build_context_synchronously
-                          Navigator.of(context).pop();
-                          _confettiController.play();
-                          _showSuccessDialog();
-                        } catch (e) {
-                          // ignore: use_build_context_synchronously
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Still failed. Please contact support.',
-                              ),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.refresh, size: 18),
-                      label: Text(
-                        'Retry',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  // ... (include all other widget methods from your original file)
+  // _buildPaymentCard, _buildUpiAppsGrid, _buildUpiAppCard,
+  // _buildTransactionIdCard, _buildInstructionsCard, _buildWaitingCard,
+  // _instructionStep, _showSuccessDialog, _showFailureDialog
 
   void _showFailureDialog() {
     showDialog(
@@ -2038,8 +800,9 @@ class _PaymentScreenState extends State<PaymentScreen>
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () {
-                        Navigator.of(context).pop();
-                        Navigator.of(context).pop();
+                        // ❌ DO NOT CLEAR CART!
+                        Navigator.of(context).pop(); // Close dialog
+                        Navigator.of(context).pop(); // Go back to cart/address
                       },
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -2062,6 +825,18 @@ class _PaymentScreenState extends State<PaymentScreen>
                     child: ElevatedButton(
                       onPressed: () {
                         Navigator.of(context).pop();
+
+                        // ❌ DO NOT CLEAR CART!
+                        // Just reset for retry
+                        setState(() {
+                          _currentTransactionRef = DateTime.now()
+                              .millisecondsSinceEpoch
+                              .toString();
+                          _isProcessing = false;
+                          _isWaitingForPayment = false;
+                          _statusCheckAttempts = 0;
+                        });
+                        _createPendingTransaction(_currentTransactionRef!);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.deepPurple,
@@ -2087,108 +862,468 @@ class _PaymentScreenState extends State<PaymentScreen>
       ),
     );
   }
-}
 
-class AnimatedPaymentAppBar extends StatefulWidget
-    implements PreferredSizeWidget {
-  const AnimatedPaymentAppBar({super.key});
+  Widget _buildPaymentCard() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Text(
+            'Pay Using UPI App',
+            style: GoogleFonts.poppins(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Colors.deepPurple,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Click on your preferred app',
+            style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey),
+          ),
+          const SizedBox(height: 24),
 
-  @override
-  Size get preferredSize => const Size.fromHeight(100);
+          _buildUpiAppsGrid(),
 
-  @override
-  State<AnimatedPaymentAppBar> createState() => _AnimatedPaymentAppBarState();
-}
+          const SizedBox(height: 24),
+          const Divider(),
+          const SizedBox(height: 16),
 
-class _AnimatedPaymentAppBarState extends State<AnimatedPaymentAppBar>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _fade;
-  late Animation<Offset> _slide;
+          Text(
+            'Or Scan QR Code',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.deepPurple,
+            ),
+          ),
+          const SizedBox(height: 12),
 
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.deepPurple, width: 2),
+            ),
+            child: QrImageView(
+              data: _upiString,
+              version: QrVersions.auto,
+              size: 150,
+              backgroundColor: Colors.white,
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Or pay manually to UPI ID:',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _upiAddressController.text,
+                        style: GoogleFonts.robotoMono(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy, size: 20),
+                      onPressed: () {
+                        Clipboard.setData(
+                          ClipboardData(text: _upiAddressController.text),
+                        );
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'UPI ID Copied!',
+                              style: GoogleFonts.poppins(fontSize: 13),
+                            ),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
-    _fade = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
-    _slide = Tween<Offset>(
-      begin: const Offset(0, -0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-    _controller.forward();
   }
 
-  // @override
-  // void dispose() {
-  //   _controller.dispose();
-  //   super.dispose();
-  // }
+  Widget _buildUpiAppsGrid() {
+    final upiApps = [
+      {
+        'name': 'Google Pay',
+        'scheme': _getUpiDeepLink('tez://upi/pay'),
+        'color': const Color(0xff4285F4),
+        'icon': Icons.payment,
+      },
+      {
+        'name': 'PhonePe',
+        'scheme': _getUpiDeepLink('phonepe://pay'),
+        'color': const Color(0xff5F259F),
+        'icon': Icons.phone_android,
+      },
+      {
+        'name': 'Paytm',
+        'scheme': _getUpiDeepLink('paytmmp://pay'),
+        'color': const Color(0xff00BAF2),
+        'icon': Icons.account_balance_wallet,
+      },
+      {
+        'name': 'BHIM',
+        'scheme': _getUpiDeepLink('upi://pay'),
+        'color': const Color(0xffED1C24),
+        'icon': Icons.account_balance,
+      },
+    ];
 
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      elevation: 0,
-      color: Colors.white,
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 1.2,
+      ),
+      itemCount: upiApps.length,
+      itemBuilder: (context, index) {
+        final app = upiApps[index];
+        return _buildUpiAppCard(
+          name: app['name'] as String,
+          deepLink: app['scheme'] as String,
+          color: app['color'] as Color,
+          icon: app['icon'] as IconData,
+        );
+      },
+    );
+  }
+
+  Widget _buildUpiAppCard({
+    required String name,
+    required String deepLink,
+    required Color color,
+    required IconData icon,
+  }) {
+    return InkWell(
+      onTap: _isProcessing ? null : () => _openUpiApp(deepLink),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Colors.deepPurple.shade50, Colors.white],
-          ),
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.3), width: 2),
         ),
-        child: SafeArea(
-          bottom: false,
-          child: FadeTransition(
-            opacity: _fade,
-            child: SlideTransition(
-              position: _slide,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.arrow_back_ios_new, size: 18),
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    const Spacer(),
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const SizedBox(height: 8),
-                        const Icon(
-                          Icons.payment_rounded,
-                          size: 32,
-                          color: Colors.deepPurple,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Secure Payment',
-                          style: GoogleFonts.poppins(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.deepPurple,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              child: Icon(icon, size: 32, color: Colors.white),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              name,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Tap to Pay',
+              style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTransactionIdCard() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.purple[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.purple[200]!),
+      ),
+      child: Column(
+        children: [
+          Text(
+            'Transaction ID',
+            style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _currentTransactionRef ?? '',
+            style: GoogleFonts.robotoMono(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.deepPurple,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInstructionsCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blue[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.info, color: Colors.blue, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'How to Pay:',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.blue[900],
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _instructionStep('1', 'Click on your UPI app above'),
+          _instructionStep('2', 'Complete payment in the app'),
+          _instructionStep('3', 'We\'ll verify automatically'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWaitingCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.deepPurple[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.deepPurple[200]!),
+      ),
+      child: Column(
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(height: 16),
+          Text(
+            'Waiting for payment...',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.deepPurple,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Complete payment in UPI app.\nWe\'ll verify automatically.',
+            style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey[600]),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Check attempt: $_statusCheckAttempts/$_maxStatusCheckAttempts',
+            style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[500]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _instructionStep(String num, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$num.',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text, style: GoogleFonts.poppins(fontSize: 13))),
+        ],
+      ),
+    );
+  }
+
+  // ✅ SUCCESS DIALOG
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: 1),
+                    duration: const Duration(milliseconds: 600),
+                    builder: (context, double value, child) {
+                      return Transform.scale(
+                        scale: value,
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.green.shade400,
+                                Colors.green.shade600,
+                              ],
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.check_circle,
+                            size: 60,
+                            color: Colors.white,
                           ),
                         ),
-                      ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Payment Successful! 🎉',
+                    style: GoogleFonts.poppins(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.green.shade700,
                     ),
-                    const Spacer(),
-                    const SizedBox(width: 48),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Your order has been confirmed',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '₹ ${_amountController.text}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.green.shade700,
+                      ),
+                    ),
+                  ),
+                  if (_currentTransactionRef != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'Transaction ID: $_currentTransactionRef',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop(); // Close dialog
+                      Navigator.of(context).pop(); // Go back to previous screen
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 40,
+                        vertical: 16,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Text(
+                      'Back to Home',
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: ConfettiWidget(
+                  confettiController: _confettiController,
+                  blastDirectionality: BlastDirectionality.explosive,
+                  numberOfParticles: 30,
+                  colors: const [
+                    Colors.green,
+                    Colors.blue,
+                    Colors.pink,
+                    Colors.orange,
+                    Colors.purple,
                   ],
                 ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );

@@ -145,24 +145,60 @@ class _HomeScreenState extends State<HomeScreen>
     });
   }
 
+  // @override
+  // void didChangeAppLifecycleState(AppLifecycleState state) {
+  //   super.didChangeAppLifecycleState(state);
+
+  //   if (state == AppLifecycleState.resumed) {
+  //     log("🔄 App resumed - refreshing products");
+  //     loadProducts(showLoading: false);
+
+  //     // 🔥 Refresh user data when app resumes
+  //     final authProvider = context.read<AuthProvider>();
+  //     if (authProvider.isLoggedIn && authProvider.userId != null) {
+  //       final userId = authProvider.userId!;
+  //       context.read<CartProvider>().loadCart(userId);
+  //       context.read<FavoritesProvider>().loadFavorites(userId);
+  //     }
+  //   }
+  // }
+
+  // 🔥 UPDATED HOME_SCREEN.DART METHOD
+  // Replace your existing didChangeAppLifecycleState method with this:
+
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
+  // 🔥 CRITICAL SECTION FROM home_screen.dart
+  // Replace your didChangeAppLifecycleState method with this EXACT code:
+  @override
+// 🔥 UPDATED didChangeAppLifecycleState METHOD FOR home_screen.dart
+// Replace your existing didChangeAppLifecycleState method with this:
 
-    if (state == AppLifecycleState.resumed) {
-      log("🔄 App resumed - refreshing products");
-      loadProducts(showLoading: false);
+@override
+void didChangeAppLifecycleState(AppLifecycleState state) async {
+  super.didChangeAppLifecycleState(state);
 
-      // 🔥 Refresh user data when app resumes
-      final authProvider = context.read<AuthProvider>();
-      if (authProvider.isLoggedIn && authProvider.userId != null) {
-        final userId = authProvider.userId!;
-        context.read<CartProvider>().loadCart(userId);
-        context.read<FavoritesProvider>().loadFavorites(userId);
-      }
+  if (state == AppLifecycleState.resumed) {
+    log("🔄 App resumed - refreshing products");
+    loadProducts(showLoading: false);
+
+    // 🔥 Automatic reload on app resume (respects payment flag)
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.isLoggedIn && authProvider.userId != null) {
+      final userId = authProvider.userId!;
+      final cartProvider = context.read<CartProvider>();
+      
+      // 🔥 CRITICAL: Use forceReload = false for automatic app resume
+      // This will skip reload if payment is in progress
+      await cartProvider.loadCart(
+        userId,
+        forceReload: false, // <-- Automatic reload, respect payment flag
+      );
+      
+      await context.read<FavoritesProvider>().loadFavorites(userId);
+      log("✅ App resumed - attempted cart reload (respects payment flag)");
     }
   }
-
+}
   void _startAutoRefresh() {
     _autoRefreshTimer = Timer.periodic(_refreshInterval, (timer) {
       log("🔄 Auto-refreshing products (every ${_refreshInterval.inSeconds}s)");

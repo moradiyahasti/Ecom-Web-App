@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 
 import 'package:demo/data/models/product_model.dart';
 import 'package:demo/data/services/api_service.dart';
@@ -353,29 +354,100 @@ class _MainLayoutState extends State<MainLayout> {
     _overlayEntry = null;
   }
 
-  void _changePage(int index) {
-    if (index < 0 || index >= pages.length) return;
+  // void _changePage(int index) {
+  //   if (index < 0 || index >= pages.length) return;
 
-    setState(() => selectedIndex = index);
+  //   setState(() => selectedIndex = index);
 
-    // Load cart data when cart tab opens
-    if (index == 1) {
-      final authProvider = context.read<AuthProvider>();
+  //   // Load cart data when cart tab opens
+  //   if (index == 1) {
+  //     final authProvider = context.read<AuthProvider>();
 
-      if (authProvider.userId != null) {
-        context.read<CartProvider>().loadCart(authProvider.userId!);
-      }
-    }
+  //     if (authProvider.userId != null) {
+  //       context.read<CartProvider>().loadCart(authProvider.userId!);
+  //     }
+  //   }
 
-    // Load favorites data when favorites tab opens
-    if (index == 2) {
-      final authProvider = context.read<AuthProvider>();
+  //   // Load favorites data when favorites tab opens
+  //   if (index == 2) {
+  //     final authProvider = context.read<AuthProvider>();
 
-      if (authProvider.userId != null) {
-        context.read<FavoritesProvider>().loadFavorites(authProvider.userId!);
-      }
+  //     if (authProvider.userId != null) {
+  //       context.read<FavoritesProvider>().loadFavorites(authProvider.userId!);
+  //     }
+  //   }
+  // }
+
+
+// In main_layout.dart - _changePage method
+
+// void _changePage(int index) {
+//   if (index < 0 || index >= pages.length) return;
+
+//   setState(() => selectedIndex = index);
+
+//   // 🔥 MODIFIED: Only reload cart if not in payment flow
+//   if (index == 1) {
+//     final authProvider = context.read<AuthProvider>();
+//     final cartProvider = context.read<CartProvider>();
+
+//     if (authProvider.userId != null) {
+//       // ✅ CHECK: Only reload if payment is NOT in progress
+//       if (!cartProvider.isPaymentInProgress) {
+//         cartProvider.loadCart(authProvider.userId!);
+//       } else {
+//         log("⏸️ SKIPPED cart reload - payment in progress");
+//       }
+//     }
+//   }
+
+//   // Load favorites (this is safe to reload)
+//   if (index == 2) {
+//     final authProvider = context.read<AuthProvider>();
+//     if (authProvider.userId != null) {
+//       context.read<FavoritesProvider>().loadFavorites(authProvider.userId!);
+//     }
+//   }
+// }
+
+// 🔥 UPDATED MAIN_LAYOUT.DART METHOD
+// Replace your existing _changePage method with this:
+
+// 🔥 CRITICAL SECTION FROM main_layout.dart
+// Replace your _changePage method with this EXACT code:
+// 🔥 UPDATED _changePage METHOD FOR main_layout.dart
+// Replace your existing _changePage method with this:
+
+void _changePage(int index) async {
+  if (index < 0 || index >= pages.length) return;
+
+  setState(() => selectedIndex = index);
+
+  // 🔥 Cart tab - automatic reload (respects payment flag)
+  if (index == 1) {
+    final authProvider = context.read<AuthProvider>();
+    final cartProvider = context.read<CartProvider>();
+
+    if (authProvider.userId != null) {
+      // 🔥 CRITICAL: Use forceReload = false for automatic tab changes
+      // This will skip reload if payment is in progress
+      await cartProvider.loadCart(
+        authProvider.userId!,
+        forceReload: false, // <-- Automatic reload, respect payment flag
+      );
+      log("✅ Cart tab opened - attempted reload (respects payment flag)");
     }
   }
+
+  // Load favorites data when favorites tab opens (safe to always reload)
+  if (index == 2) {
+    final authProvider = context.read<AuthProvider>();
+
+    if (authProvider.userId != null) {
+      context.read<FavoritesProvider>().loadFavorites(authProvider.userId!);
+    }
+  }
+}
 
   @override
   Widget build(BuildContext context) {

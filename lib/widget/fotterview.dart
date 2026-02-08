@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -47,9 +50,9 @@ class _ContactFormSectionState extends State<ContactFormSection> {
   bool _isSubmitting = false;
 
   // 🔥 YOUR API ENDPOINT
+  // static const String API_URL =
   static const String API_URL =
-      "http://192.168.1.25:8080/shreenails/php-backend/public/api/contact";
-  // static const String API_URL = 'http://192.168.29.212:5000/api/contact';
+      "https://shreenails.com/routes/contact.php"; // static const String API_URL = 'http://192.168.29.212:5000/api/contact';
 
   @override
   void initState() {
@@ -79,6 +82,9 @@ class _ContactFormSectionState extends State<ContactFormSection> {
 
     try {
       print('📤 Sending request to: $API_URL');
+      print(
+        '📤 Data: ${json.encode({'name': _nameController.text.trim(), 'email': _emailController.text.trim(), 'address': _addressController.text.trim(), 'query': _queryController.text.trim()})}',
+      );
 
       final response = await http
           .post(
@@ -95,9 +101,11 @@ class _ContactFormSectionState extends State<ContactFormSection> {
             }),
           )
           .timeout(
-            const Duration(seconds: 10),
+            const Duration(seconds: 30), // Increased timeout
             onTimeout: () {
-              throw Exception('Request timeout - Please check your connection');
+              throw Exception(
+                'Connection timeout - Server took too long to respond',
+              );
             },
           );
 
@@ -111,8 +119,6 @@ class _ContactFormSectionState extends State<ContactFormSection> {
 
         if (data['success'] == true) {
           _showSuccessDialog();
-
-          // Clear form
           _formKey.currentState!.reset();
           _nameController.clear();
           _emailController.clear();
@@ -124,15 +130,32 @@ class _ContactFormSectionState extends State<ContactFormSection> {
       } else if (response.statusCode == 400) {
         final data = json.decode(response.body);
         _showErrorSnackbar(data['message'] ?? 'Invalid data');
+      } else if (response.statusCode == 500) {
+        _showErrorSnackbar('Server error. Please contact support.');
       } else {
-        _showErrorSnackbar('Server error. Please try again later.');
+        _showErrorSnackbar('Unexpected error (${response.statusCode})');
+      }
+    } on SocketException catch (e) {
+      print('❌ Network Error: $e');
+      if (mounted) {
+        _showErrorSnackbar(
+          'No internet connection. Please check your network.',
+        );
+      }
+    } on TimeoutException catch (e) {
+      print('❌ Timeout Error: $e');
+      if (mounted) {
+        _showErrorSnackbar('Request timeout. Server is not responding.');
+      }
+    } on FormatException catch (e) {
+      print('❌ JSON Error: $e');
+      if (mounted) {
+        _showErrorSnackbar('Invalid response from server.');
       }
     } catch (e) {
       print('❌ Error: $e');
       if (mounted) {
-        _showErrorSnackbar(
-          'Failed to connect. Please check your internet connection.',
-        );
+        _showErrorSnackbar('Failed to connect: ${e.toString()}');
       }
     } finally {
       if (mounted) {

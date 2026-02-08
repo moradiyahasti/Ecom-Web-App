@@ -159,9 +159,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
             ),
           ],
         ),
-        backgroundColor: isSuccess
-            ? Colors.deepPurple
-            : Colors.red.shade600,
+        backgroundColor: isSuccess ? Colors.deepPurple : Colors.red.shade600,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
@@ -881,8 +879,6 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
       ),
     );
   }
-
-  bool _showPassword = false;
 
   Widget _animatedInput(
     String hint, {

@@ -9,8 +9,10 @@ import '../models/product_model.dart';
 
 class ApiService {
   // 🔥 BASE URL - Make sure this is correct
-  static const String baseUrl =
-      "http://192.168.0.106:8080/shreenails/php-backend/public";
+  static const String baseUrl = "https://shreenails.com";
+  //  "https://shreenails.com";
+  // "http://192.168.0.107:8080/shreenails/php-backend/public";
+  // "http://shreenails.com/php-backend/public";
 
   static const headers = {"Content-Type": "application/json"};
 

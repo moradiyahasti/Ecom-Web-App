@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:confetti/confetti.dart';
 import 'package:demo/data/providers/auth_provider.dart';
 import 'package:demo/presentation/screens/Settings/address_screen.dart';
@@ -31,15 +33,43 @@ class CartScreenState extends State<CartScreen> {
     {"code": "FIRST50", "discount": 50, "desc": "Flat ₹50 OFF"},
   ];
 
+  // 🔥 FIXED initState - Checks payment flag BEFORE loading cart
   @override
   void initState() {
     super.initState();
-  
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // 🔥 CRITICAL FIX: Check payment flag BEFORE loading cart
+      final cartProvider = context.read<CartProvider>();
+      final paymentInProgress = await cartProvider.isPaymentInProgress;
+      
+      print("═══════════════════════════════════════════");
+      print("📱 CART SCREEN - initState Callback");
+      print("🔍 Payment in progress: $paymentInProgress");
+      print("───────────────────────────────────────────");
+      
+      if (paymentInProgress) {
+        print("⏸️ SKIPPED automatic cart reload");
+        print("💡 Reason: Payment flow is active");
+        print("═══════════════════════════════════════════");
+        log("⏸️ Cart reload BLOCKED - payment in progress");
+        return; // ❌ Exit early - don't reload
+      }
+      
       final authProvider = context.read<AuthProvider>();
 
       if (authProvider.userId != null) {
-        context.read<CartProvider>().loadCart(authProvider.userId!);
+        print("✅ Payment NOT in progress - proceeding with cart load");
+        print("User ID: ${authProvider.userId}");
+        print("═══════════════════════════════════════════");
+        
+        await cartProvider.loadCart(
+          authProvider.userId!,
+          forceReload: false,
+        );
+      } else {
+        print("⚠️ User ID is null - cannot load cart");
+        print("═══════════════════════════════════════════");
       }
     });
   }
@@ -166,7 +196,6 @@ class CartScreenState extends State<CartScreen> {
   }
 
   Widget _cartTable() {
-    // 🔥 Provider માંથી cart items લો
     final cartProvider = context.watch<CartProvider>();
     final cartItems = cartProvider.cartItems;
     final isLoading = cartProvider.isLoading;
@@ -314,13 +343,12 @@ class CartScreenState extends State<CartScreen> {
             children: [
               IconButton(
                 icon: const Icon(Icons.close, size: 20),
-              
                 onPressed: () async {
                   final authProvider = context.read<AuthProvider>();
 
                   if (authProvider.userId != null) {
                     await cartProvider.removeFromCart(
-                      authProvider.userId!, // 🔥 DYNAMIC
+                      authProvider.userId!,
                       item.productId,
                     );
                   }
@@ -386,7 +414,6 @@ class CartScreenState extends State<CartScreen> {
           IconButton(
             icon: const Icon(Icons.close),
             onPressed: () async {
-              // await cartProvider.removeFromCart(1, item.productId);
               await cartProvider.removeFromCart(item.userID, item.productId);
 
               if (mounted) {
@@ -406,7 +433,7 @@ class CartScreenState extends State<CartScreen> {
 
   Widget _qtyCounter(int productId, int quantity) {
     final cartProvider = context.read<CartProvider>();
-    final authProvider = context.read<AuthProvider>(); // 🔥 GET AUTH
+    final authProvider = context.read<AuthProvider>();
 
     final isMobile = MediaQuery.of(context).size.width < 700;
 
@@ -423,11 +450,10 @@ class CartScreenState extends State<CartScreen> {
         children: [
           _qtyButton(
             icon: Icons.remove,
-          
             onTap: () async {
               if (authProvider.userId != null) {
                 await cartProvider.decrementQuantity(
-                  authProvider.userId!, 
+                  authProvider.userId!,
                   productId,
                 );
                 if (mounted) {
@@ -444,11 +470,10 @@ class CartScreenState extends State<CartScreen> {
           Text(quantity.toString(), style: const TextStyle(fontSize: 13)),
           _qtyButton(
             icon: Icons.add,
-           
             onTap: () async {
               if (authProvider.userId != null) {
                 await cartProvider.incrementQuantity(
-                  authProvider.userId!, // 🔥 DYNAMIC
+                  authProvider.userId!,
                   productId,
                 );
                 if (mounted) {
@@ -483,6 +508,14 @@ class CartScreenState extends State<CartScreen> {
 
   // ================= SHIPPING =================
   Widget _shippingMode() {
+    final cartProvider = context.watch<CartProvider>();
+    final hasItems = cartProvider.cartItems.isNotEmpty;
+    
+    // Calculate charges for home delivery
+    final tax = hasItems && shippingMode == 1 ? 30 : 0;
+    final shipping = hasItems && shippingMode == 1 ? 50 : 0;
+    final totalCharges = tax + shipping;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: _box(),
@@ -494,14 +527,16 @@ class CartScreenState extends State<CartScreen> {
           _shippingTile(
             value: 0,
             title: "Store pickup (Free)",
-            subtitle: "Ready within 1 hour",
+            subtitle: "Ready within same Day",
           ),
           const SizedBox(height: 12),
           _shippingTile(
             value: 1,
-            title: "Home delivery (₹330)",
-            subtitle: "2 - 4 days",
-            address: "12 Adenuga Street, Tajudeen Avenue, Ikeja, Lagos State.",
+            title: "Home delivery",
+            subtitle: hasItems 
+                ? "1 - 2 days (Total charges: ₹$totalCharges including shipping + tax)"
+                : "1 - 2 days",
+            
           ),
         ],
       ),
@@ -763,11 +798,16 @@ class CartScreenState extends State<CartScreen> {
 
   // ================= ORDER SUMMARY =================
   Widget _orderSummary() {
-    // 🔥 Provider માંથી totals લો
     final cartProvider = context.watch<CartProvider>();
     final subtotal = cartProvider.totalPrice;
-    final tax = 80;
-    final shippingCost = shippingMode == 1 ? 130 : 0;
+    final hasItems = cartProvider.cartItems.isNotEmpty;
+    
+    // Tax: 0 if cart empty, 0 for store pickup, 30 for home delivery with items
+    final tax = !hasItems ? 0 : (shippingMode == 0 ? 0 : 30);
+    
+    // Shipping: 0 if cart empty, Free for store pickup, 50 for home delivery with items
+    final shippingCost = !hasItems ? 0 : (shippingMode == 1 ? 50 : 0);
+    
     final total = subtotal + tax + shippingCost - discountAmount;
 
     return Container(
@@ -780,7 +820,7 @@ class CartScreenState extends State<CartScreen> {
           const SizedBox(height: 12),
           _row("Subtotal", "₹ ${subtotal.toInt()}"),
           _row("Tax", "₹ $tax"),
-          _row("Shipping", "₹ $shippingCost"),
+          _row("Shipping", shippingMode == 0 && hasItems ? "Free" : "₹ $shippingCost"),
           if (discountAmount > 0) _row("Discount", "- ₹ $discountAmount"),
           const Divider(),
           _row("Total", "₹ ${total.toInt()}", bold: true),
@@ -798,8 +838,9 @@ class CartScreenState extends State<CartScreen> {
               onPressed: () {
                 final cartProvider = context.read<CartProvider>();
                 final subtotal = cartProvider.totalPrice;
-                final tax = 80;
-                final shippingCost = shippingMode == 1 ? 130 : 0;
+                final hasItems = cartProvider.cartItems.isNotEmpty;
+                final tax = !hasItems ? 0 : (shippingMode == 0 ? 0 : 30);
+                final shippingCost = !hasItems ? 0 : (shippingMode == 1 ? 50 : 0);
                 final total = subtotal + tax + shippingCost - discountAmount;
                 final cartItems = cartProvider.cartItems;
 
@@ -817,7 +858,6 @@ class CartScreenState extends State<CartScreen> {
                   ),
                 );
               },
-
               child: Text(
                 "Proceed to payment",
                 style: GoogleFonts.poppins(color: Colors.white),
@@ -844,25 +884,25 @@ class CartScreenState extends State<CartScreen> {
   }
 
   Widget _title(String text) => Text(
-    text,
-    style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600),
-  );
+        text,
+        style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600),
+      );
 
   Widget _headerText(String text, {bool center = false}) => Text(
-    text,
-    textAlign: center ? TextAlign.center : TextAlign.start,
-    style: GoogleFonts.poppins(
-      fontSize: 13,
-      fontWeight: FontWeight.w600,
-      color: Colors.grey,
-    ),
-  );
+        text,
+        textAlign: center ? TextAlign.center : TextAlign.start,
+        style: GoogleFonts.poppins(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: Colors.grey,
+        ),
+      );
 
   BoxDecoration _box() => BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(16),
-    boxShadow: [
-      BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12),
-    ],
-  );
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12),
+        ],
+      );
 }
