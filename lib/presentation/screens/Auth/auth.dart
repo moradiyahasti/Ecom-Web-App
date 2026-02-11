@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:demo/data/providers/auth_provider.dart';
 import 'package:demo/data/services/token_service.dart';
 import 'package:demo/presentation/screens/Auth/dashboard_screen.dart';
 import 'package:demo/data/services/api_service.dart';
@@ -6,6 +7,7 @@ import 'package:demo/presentation/screens/Auth/lofin_logout_handler.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart';
 
 enum AuthView { login, register, forgot }
 
@@ -170,6 +172,65 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     );
   }
 
+  // void onLogin() async {
+  //   if (loginEmail.text.trim().isEmpty || loginPassword.text.trim().isEmpty) {
+  //     _showCustomSnackBar(message: "Please fill all fields", isSuccess: false);
+  //     return;
+  //   }
+
+  //   setState(() => isLoading = true);
+
+  //   final res = await ApiService.login(
+  //     email: loginEmail.text.trim(),
+  //     password: loginPassword.text.trim(),
+  //   );
+
+  //   setState(() => isLoading = false);
+
+  //   if (res['status'] == 200) {
+  //     final data = res['data'];
+
+  //     // 🔥 EXTRACT ALL DATA FIRST
+  //     final token = data['token'];
+  //     final refreshToken = data['refreshToken']; // 🔥 ADD THIS
+  //     final userId = data['user']['id'];
+  //     final name = data['user']['name'];
+  //     final email = data['user']['email'];
+
+  //     // 🔥 SAVE LOGIN DATA
+  //     await TokenService.saveLoginData(
+  //       token: token,
+  //       refreshToken: refreshToken, // 🔥 Pass refresh token
+  //       name: name,
+  //       email: email,
+  //       userId: userId,
+  //     );
+
+  //     // 🔥 USE handleLogin HELPER (if you have this function)
+  //     if (context.mounted) {
+  //       await handleLogin(
+  //         context: context,
+  //         userId: userId,
+  //         userName: name,
+  //         userEmail: email,
+  //         token: token,
+  //       );
+
+  //       Navigator.pushReplacement(
+  //         context,
+  //         MaterialPageRoute(builder: (_) => const MainLayout()),
+  //       );
+  //     }
+  //   } else {
+  //     // 🔥 HANDLE LOGIN FAILURE
+  //     _showCustomSnackBar(
+  //       message:
+  //           res["data"]["error"] ?? res["data"]["message"] ?? "Login failed",
+  //       isSuccess: false,
+  //     );
+  //   }
+  // }
+
   void onLogin() async {
     if (loginEmail.text.trim().isEmpty || loginPassword.text.trim().isEmpty) {
       _showCustomSnackBar(message: "Please fill all fields", isSuccess: false);
@@ -187,40 +248,44 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
 
     if (res['status'] == 200) {
       final data = res['data'];
-
-      // 🔥 EXTRACT ALL DATA FIRST
       final token = data['token'];
-      final refreshToken = data['refreshToken']; // 🔥 ADD THIS
+      final refreshToken = data['refreshToken'];
       final userId = data['user']['id'];
       final name = data['user']['name'];
       final email = data['user']['email'];
 
-      // 🔥 SAVE LOGIN DATA
+      // Save login data
       await TokenService.saveLoginData(
         token: token,
-        refreshToken: refreshToken, // 🔥 Pass refresh token
+        refreshToken: refreshToken,
         name: name,
         email: email,
         userId: userId,
       );
 
-      // 🔥 USE handleLogin HELPER (if you have this function)
       if (context.mounted) {
-        await handleLogin(
-          context: context,
+        // Update AuthProvider
+        final authProvider = context.read<AuthProvider>();
+        await authProvider.login(
           userId: userId,
-          userName: name,
-          userEmail: email,
+          name: name,
+          email: email,
           token: token,
         );
 
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const MainLayout()),
+        _showCustomSnackBar(
+          message: "Welcome back, $name! 🎉",
+          isSuccess: true,
         );
+
+        // 🔥 Wait a moment for snackbar, then return true
+        await Future.delayed(const Duration(milliseconds: 800));
+
+        if (mounted) {
+          Navigator.pop(context, true); // ← Return true for successful login
+        }
       }
     } else {
-      // 🔥 HANDLE LOGIN FAILURE
       _showCustomSnackBar(
         message:
             res["data"]["error"] ?? res["data"]["message"] ?? "Login failed",

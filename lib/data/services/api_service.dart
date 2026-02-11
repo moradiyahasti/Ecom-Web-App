@@ -2,14 +2,16 @@ import 'dart:convert';
 import 'dart:developer';
 import 'package:demo/data/models/get_cart_item_model.dart';
 import 'package:demo/data/services/token_service.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/product_model.dart';
 
 class ApiService {
   // 🔥 CORRECTED BASE URL - This should point to your public folder
-  static const String baseUrl = "https://shreenails.com/php-backend/public";
-  
+  static const String baseUrl = "https://shreenails.com";
+
   static const headers = {"Content-Type": "application/json"};
 
   // ========================= AUTH =========================
@@ -419,17 +421,63 @@ class ApiService {
     log("📥 Status: ${res.statusCode}");
   }
 
-  static Future<void> clearCart(int userId) async {
-    final url = Uri.parse("$baseUrl/api/cart/clear/$userId");
+  // static Future<void> clearCart(int userId) async {
+  //   final url = Uri.parse("$baseUrl/api/cart/clear/$userId");
 
-    log("📤 CLEAR CART: $url");
+  //   log("📤 CLEAR CART: $url");
 
-    final res = await http.delete(url);
+  //   final res = await http.delete(url);
 
-    log("📥 Status: ${res.statusCode}");
+  //   log("📥 Status: ${res.statusCode}");
 
-    if (res.statusCode != 200) {
-      throw Exception("Failed to clear cart");
+  //   if (res.statusCode != 200) {
+  //     throw Exception("Failed to clear cart");
+  //   }
+  // }
+
+  static Future<Map<String, dynamic>?> clearCart() async {
+    try {
+      final userId = await _getUserId();
+
+      if (userId == null) {
+        debugPrint("❌ User ID not found");
+        return null;
+      }
+
+      debugPrint("🛒 Clearing cart for user: $userId");
+
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/cart/clear'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'user_id': userId}),
+      );
+
+      debugPrint("📥 Clear Cart Response: ${response.statusCode}");
+      debugPrint("📥 Response Body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        debugPrint("✅ Cart cleared successfully");
+        return data;
+      } else {
+        debugPrint("❌ Clear Cart Error: ${response.statusCode}");
+        return null;
+      }
+    } catch (e) {
+      debugPrint("❌ Clear Cart Exception: $e");
+      return null;
+    }
+  }
+
+  // Helper to get user ID (if not already present)
+  static Future<int?> _getUserId() async {
+    try {
+      // Get from SharedPreferences or your auth system
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getInt('user_id');
+    } catch (e) {
+      debugPrint("❌ Error getting user ID: $e");
+      return null;
     }
   }
 
@@ -921,6 +969,123 @@ class ApiService {
     } else {
       log('❌ Could not launch UPI');
       throw 'Could not launch UPI';
+    }
+  }
+  // ========================= RAZORPAY PAYMENT =========================
+
+  static Future<Map<String, dynamic>?> createRazorpayOrder({
+    required int orderId,
+    required String transactionRef,
+    required double amount,
+  }) async {
+    try {
+      log("══════════════════════════════════════════");
+      log("📤 CREATE RAZORPAY ORDER");
+      log("   Order ID: $orderId");
+      log("   Transaction Ref: $transactionRef");
+      log("   Amount: $amount");
+      log("══════════════════════════════════════════");
+
+      final url = Uri.parse("$baseUrl/api/payment/razorpay/create");
+
+      final body = {
+        "order_id": orderId.toString(),
+        "transaction_ref": transactionRef,
+        "amount": amount.toInt(),
+      };
+
+      log("URL: $url");
+      log("Body: ${jsonEncode(body)}");
+
+      final response = await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: jsonEncode(body),
+      );
+
+      log("📥 Response Status: ${response.statusCode}");
+      log("📥 Response Body: ${response.body}");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+
+        if (data['success'] == true) {
+          log("✅ Razorpay order created successfully");
+          log("══════════════════════════════════════════");
+          return data;
+        } else {
+          log("❌ Razorpay order creation failed: ${data['error']}");
+          log("══════════════════════════════════════════");
+          return null;
+        }
+      } else {
+        log("❌ HTTP Error: ${response.statusCode}");
+        log("══════════════════════════════════════════");
+        return null;
+      }
+    } catch (e, stackTrace) {
+      log("❌ CREATE RAZORPAY ORDER ERROR: $e");
+      log("Stack trace: $stackTrace");
+      log("══════════════════════════════════════════");
+      return null;
+    }
+  }
+
+  static Future<bool> updateRazorpayPayment({
+    required String transactionRef,
+    required String status,
+    String? razorpayPaymentId,
+    required int orderId,
+  }) async {
+    try {
+      log("══════════════════════════════════════════");
+      log("📤 UPDATE RAZORPAY PAYMENT");
+      log("   Transaction Ref: $transactionRef");
+      log("   Status: $status");
+      log("   Payment ID: $razorpayPaymentId");
+      log("══════════════════════════════════════════");
+
+      final url = Uri.parse("$baseUrl/api/payment/razorpay/update");
+
+      final body = {
+        "transaction_ref": transactionRef,
+        "status": status,
+        "razorpay_payment_id": razorpayPaymentId,
+        "order_id": orderId,
+      };
+
+      log("URL: $url");
+      log("Body: ${jsonEncode(body)}");
+
+      final response = await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: jsonEncode(body),
+      );
+
+      log("📥 Response Status: ${response.statusCode}");
+      log("📥 Response Body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        log("✅ Razorpay payment updated successfully");
+        log("══════════════════════════════════════════");
+        return true;
+      } else {
+        log("❌ Update failed");
+        log("══════════════════════════════════════════");
+        return false;
+      }
+    } catch (e, stackTrace) {
+      log("❌ UPDATE RAZORPAY PAYMENT ERROR: $e");
+      log("Stack trace: $stackTrace");
+      log("══════════════════════════════════════════");
+      return false;
     }
   }
 }

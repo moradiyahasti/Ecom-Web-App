@@ -228,7 +228,7 @@ class _PremiumSplashViewState extends State<PremiumSplashView>
                   ),
                   // Icon
                   Center(
-                    child:/*  Image.asset(
+                    child: /*  Image.asset(
                       height: 250,
                       width: 250,
                       "assets/shree nails.png",
@@ -240,7 +240,7 @@ class _PremiumSplashViewState extends State<PremiumSplashView>
                       size: 50,
                     ),
                   ),
-                  Text("Sonali Jivani")
+                  Text("Sonali Jivani"),
                 ],
               ),
             ),
@@ -283,9 +283,9 @@ class _PremiumSplashViewState extends State<PremiumSplashView>
                 fontWeight: FontWeight.w500,
               ),
             ),
-                        const SizedBox(height: 12),
+            const SizedBox(height: 12),
 
-Text("Sonali Jivani"),
+            Text("Sonali Jivani"),
             const SizedBox(height: 12),
 
             // Features

@@ -2,6 +2,7 @@ import 'dart:developer';
 
 import 'package:confetti/confetti.dart';
 import 'package:demo/data/providers/auth_provider.dart';
+import 'package:demo/presentation/screens/Auth/auth.dart';
 import 'package:demo/presentation/screens/Settings/address_screen.dart';
 import 'package:demo/data/providers/cart_provider.dart';
 import 'package:demo/utils/snackbar_service.dart';
@@ -797,7 +798,7 @@ class CartScreenState extends State<CartScreen> {
   }
 
   // ================= ORDER SUMMARY =================
-  Widget _orderSummary() {
+  /* Widget _orderSummary() {
     final cartProvider = context.watch<CartProvider>();
     final subtotal = cartProvider.totalPrice;
     final hasItems = cartProvider.cartItems.isNotEmpty;
@@ -868,7 +869,193 @@ class CartScreenState extends State<CartScreen> {
       ),
     );
   }
+ */
 
+
+Widget _orderSummary() {
+  final cartProvider = context.watch<CartProvider>();
+  final authProvider = context.watch<AuthProvider>(); // 🔥 ADD
+  final subtotal = cartProvider.totalPrice;
+  final hasItems = cartProvider.cartItems.isNotEmpty;
+  
+  final tax = !hasItems ? 0 : (shippingMode == 0 ? 0 : 30);
+  final shippingCost = !hasItems ? 0 : (shippingMode == 1 ? 50 : 0);
+  final total = subtotal + tax + shippingCost - discountAmount;
+
+  return Container(
+    padding: const EdgeInsets.all(16),
+    decoration: _box(),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _title("Order summary"),
+        const SizedBox(height: 12),
+        _row("Subtotal", "₹ ${subtotal.toInt()}"),
+        _row("Tax", "₹ $tax"),
+        _row("Shipping", shippingMode == 0 && hasItems ? "Free" : "₹ $shippingCost"),
+        if (discountAmount > 0) _row("Discount", "- ₹ $discountAmount"),
+        const Divider(),
+        _row("Total", "₹ ${total.toInt()}", bold: true),
+        const SizedBox(height: 16),
+        
+        // 🔥 SMART PAYMENT BUTTON
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: hasItems ? Colors.deepPurple : Colors.grey,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: hasItems ? () => _handleCheckout(
+              authProvider: authProvider,
+              cartProvider: cartProvider,
+              subtotal: subtotal,
+              tax: tax.toDouble(),
+              shippingCost: shippingCost.toDouble(),
+              total: total.toDouble(),
+            ) : null,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (!authProvider.isLoggedIn) ...[
+                  const Icon(Icons.login, size: 18, color: Colors.white),
+                  const SizedBox(width: 8),
+                ],
+                Text(
+                  authProvider.isLoggedIn 
+                      ? "Proceed to payment" 
+                      : "Login to continue",
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (authProvider.isLoggedIn)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 8),
+                    child: Icon(Icons.arrow_forward, size: 18, color: Colors.white),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        
+        // 🔥 OPTIONAL: Show login hint if not logged in
+        if (!authProvider.isLoggedIn && hasItems)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, 
+                    size: 18, 
+                    color: Colors.orange.shade700,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "Login required to complete your purchase",
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.orange.shade700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
+// 🔥 CHECKOUT HANDLER
+void _handleCheckout({
+  required AuthProvider authProvider,
+  required CartProvider cartProvider,
+  required double subtotal,
+  required double tax,
+  required double shippingCost,
+  required double total,
+}) async {
+  // ❌ NOT LOGGED IN → Show Auth Screen
+  if (!authProvider.isLoggedIn) {
+    final loginSuccess = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const AuthScreen(),
+      ),
+    );
+
+    // Check if login was successful
+    if (loginSuccess == true && mounted && authProvider.isLoggedIn) {
+      // ✅ Login successful → Load user's cart and proceed
+      await cartProvider.loadCart(authProvider.userId!);
+      
+      if (mounted) {
+        _navigateToAddress(
+          cartProvider: cartProvider,
+          subtotal: subtotal,
+          tax: tax,
+          shippingCost: shippingCost,
+          total: total,
+        );
+      }
+    } else {
+      // ❌ Login cancelled or failed
+      if (mounted) {
+        SnackbarService.show(
+          context: context,
+          title: "Login Required",
+          message: "Please login to continue with your purchase",
+          isSuccess: false,
+        );
+      }
+    }
+  } else {
+    // ✅ ALREADY LOGGED IN → Direct to Address
+    _navigateToAddress(
+      cartProvider: cartProvider,
+      subtotal: subtotal,
+      tax: tax,
+      shippingCost: shippingCost,
+      total: total,
+    );
+  }
+}
+
+// 🔥 NAVIGATE TO ADDRESS
+void _navigateToAddress({
+  required CartProvider cartProvider,
+  required double subtotal,
+  required double tax,
+  required double shippingCost,
+  required double total,
+}) {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => AddressScreen(
+        subtotal: subtotal,
+        tax: tax,
+        shipping: shippingCost,
+        discount: discountAmount.toDouble(),
+        total: total,
+        cartItems: cartProvider.cartItems,
+      ),
+    ),
+  );
+}
   // ================= HELPERS =================
   Widget _row(String t, String v, {bool bold = false}) {
     return Padding(

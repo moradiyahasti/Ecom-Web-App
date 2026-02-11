@@ -5,19 +5,19 @@ import 'package:demo/data/services/token_service.dart';
 import 'package:flutter/material.dart';
 
 class CartProvider extends ChangeNotifier {
-  Map<int, GetCartItemMode> _cartItems = {}; 
+  Map<int, GetCartItemMode> _cartItems = {};
   bool _isLoading = false;
 
   bool get isLoading => _isLoading;
-  
+
   // 🔥 Check SharedPreferences for payment flag
   Future<bool> get isPaymentInProgress async {
     return await TokenService.isPaymentInProgress();
   }
-  
+
   // Get all cart items as list
   List<GetCartItemMode> get cartItems => _cartItems.values.toList();
-  
+
   // Get quantity for a specific product
   int getQuantity(int productId) {
     return _cartItems[productId]?.quantity ?? 0;
@@ -51,29 +51,29 @@ class CartProvider extends ChangeNotifier {
     print("═══════════════════════════════════════════");
     print("🔒 STARTING PAYMENT FLOW");
     print("═══════════════════════════════════════════");
-    
+
     await TokenService.setPaymentInProgress(true);
-    
+
     // 🔥 VERIFY it was set
     final verified = await TokenService.isPaymentInProgress();
     print("✅ Payment flow started - Flag verified: $verified");
-    
+
     log("🔒 Payment flow started - automatic reloads BLOCKED (SAVED TO DISK)");
     notifyListeners();
   }
-  
+
   // 🔥 End payment flow - PERSISTS across app restarts
   Future<void> endPaymentFlow() async {
     print("═══════════════════════════════════════════");
     print("🔓 ENDING PAYMENT FLOW");
     print("═══════════════════════════════════════════");
-    
+
     await TokenService.setPaymentInProgress(false);
-    
+
     // 🔥 VERIFY it was cleared
     final verified = await TokenService.isPaymentInProgress();
     print("✅ Payment flow ended - Flag verified: $verified");
-    
+
     log("🔓 Payment flow ended - automatic reloads ALLOWED");
     notifyListeners();
   }
@@ -86,14 +86,14 @@ class CartProvider extends ChangeNotifier {
     print("Force Reload: $forceReload");
     print("Current items in cart: ${_cartItems.length}");
     print("───────────────────────────────────────────");
-    
+
     // ✅ CHECK PERSISTENT FLAG (unless forceReload is true)
     if (!forceReload) {
       final paymentInProgress = await TokenService.isPaymentInProgress();
-      
+
       print("🔍 Checking payment flag...");
       print("Payment in progress: $paymentInProgress");
-      
+
       if (paymentInProgress) {
         print("⏸️ SKIPPED: Payment in progress");
         print("═══════════════════════════════════════════");
@@ -106,18 +106,18 @@ class CartProvider extends ChangeNotifier {
       print("🔄 FORCE RELOAD: Ignoring payment flag");
       log("🔄 FORCE RELOAD - ignoring payment flag (user action)");
     }
-    
+
     try {
       log("🔄 Loading cart for user: $userId");
-      
+
       _isLoading = true;
       notifyListeners();
 
       print("📡 Calling API to get cart...");
       final cartItems = await ApiService.getCart(userId);
-      
+
       print("📦 API returned ${cartItems.length} items");
-      
+
       _cartItems.clear();
       for (var item in cartItems) {
         _cartItems[item.productId] = item;
@@ -127,9 +127,11 @@ class CartProvider extends ChangeNotifier {
       print("Items in memory: ${_cartItems.length}");
       print("Total price: ₹${totalPrice.toInt()}");
       print("═══════════════════════════════════════════");
-      
-      log("✅ Cart loaded: ${_cartItems.length} items, Total: ₹${totalPrice.toInt()} for user $userId");
-      
+
+      log(
+        "✅ Cart loaded: ${_cartItems.length} items, Total: ₹${totalPrice.toInt()} for user $userId",
+      );
+
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -154,9 +156,9 @@ class CartProvider extends ChangeNotifier {
       print("Product ID: $productId");
       print("Quantity: $quantity");
       print("───────────────────────────────────────────");
-      
+
       log("🔄 Adding to cart - User: $userId, Product: $productId");
-      
+
       final cartId = await ApiService.addToCart(
         userId: userId,
         productId: productId,
@@ -171,7 +173,7 @@ class CartProvider extends ChangeNotifier {
 
       print("✅ Add to cart complete");
       print("═══════════════════════════════════════════");
-      
+
       log("✅ Added to cart: Product $productId (CartID: $cartId)");
       return true;
     } catch (e) {
@@ -197,7 +199,9 @@ class CartProvider extends ChangeNotifier {
         return await removeFromCart(userId, productId);
       }
 
-      log("🔄 Updating quantity - User: $userId, Product: $productId, Qty: $newQuantity");
+      log(
+        "🔄 Updating quantity - User: $userId, Product: $productId, Qty: $newQuantity",
+      );
 
       await ApiService.updateCartQuantity(
         cartId: cartItem.cartId,
@@ -255,9 +259,9 @@ class CartProvider extends ChangeNotifier {
 
     try {
       log("🔄 Removing from cart - User: $userId, Product: $productId");
-      
+
       await ApiService.removeFromCart(cartItem.cartId);
-      
+
       // 🔥 Update local state immediately
       _cartItems.remove(productId);
       notifyListeners();
@@ -281,28 +285,27 @@ class CartProvider extends ChangeNotifier {
       print("🔍 STACK TRACE (who called clearCart?):");
       print(StackTrace.current);
       print("═══════════════════════════════════════════════════");
-      
+
       log("🔄 CLEARING CART for user: $userId");
       log("⚠️ WARNING: This will PERMANENTLY DELETE all cart items!");
-      
+
       _isLoading = true;
       notifyListeners();
 
       // 🔥 CALL API TO DELETE CART ITEMS FROM DATABASE
-      await ApiService.clearCart(userId);
-      
+      await ApiService.clearCart();
+
       // 🔥 CLEAR LOCAL STATE
       _cartItems.clear();
-      
+
       // 🔥 IMPORTANT: Clear payment flag after successful cart clear
       await TokenService.setPaymentInProgress(false);
-      
+
       _isLoading = false;
       notifyListeners();
-      
+
       log("✅ Cart cleared successfully for user $userId");
       print("✅ Cart is now empty - ${_cartItems.length} items remaining");
-      
     } catch (e) {
       log("❌ Error clearing cart: $e");
       print("❌ Error clearing cart: $e");
@@ -315,13 +318,13 @@ class CartProvider extends ChangeNotifier {
   Future<void> clearLocalCart() async {
     log("🗑️ Clearing local cart data (logout - NO API CALL)");
     print("🗑️ Clearing local cart - items before: ${_cartItems.length}");
-    
+
     _cartItems.clear();
     _isLoading = false;
-    
+
     // 🔥 IMPORTANT: Clear payment flag on logout
     await TokenService.setPaymentInProgress(false);
-    
+
     notifyListeners();
     print("✅ Local cart cleared - items after: ${_cartItems.length}");
   }
