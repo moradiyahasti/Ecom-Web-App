@@ -240,7 +240,7 @@ class _PremiumSplashViewState extends State<PremiumSplashView>
                       size: 50,
                     ),
                   ),
-                  Text("Sonali Jivani"),
+                  Text("Shree Nailssssssssssss"),
                 ],
               ),
             ),
@@ -285,7 +285,7 @@ class _PremiumSplashViewState extends State<PremiumSplashView>
             ),
             const SizedBox(height: 12),
 
-            Text("Sonali Jivani"),
+            Text("Shree Nailssssssssssss"),
             const SizedBox(height: 12),
 
             // Features
