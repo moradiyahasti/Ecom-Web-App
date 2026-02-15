@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'package:demo/data/providers/auth_provider.dart';
 import 'package:demo/data/services/token_service.dart';
-import 'package:demo/presentation/screens/Auth/dashboard_screen.dart';
 import 'package:demo/data/services/api_service.dart';
-import 'package:demo/presentation/screens/Auth/lofin_logout_handler.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';

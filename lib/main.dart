@@ -1,4 +1,3 @@
-import 'package:demo/presentation/screens/Auth/auth.dart';
 import 'package:demo/presentation/screens/Auth/dashboard_screen.dart';
 import 'package:demo/presentation/screens/Auth/splash_screen.dart';
 import 'package:demo/data/providers/auth_provider.dart';
@@ -64,49 +63,30 @@ class _SplashDeciderState extends State<SplashDecider> {
   }
 
   Future<void> _checkLogin() async {
-    // Premium splash delay for animations
     await Future.delayed(const Duration(milliseconds: 2500));
-
     if (!mounted) return;
-
-    // 🔥 Get AuthProvider
     final authProvider = context.read<AuthProvider>();
-
-    // Wait for auth initialization if not already done
     if (!authProvider.isInitialized) {
       await authProvider.initialize();
     }
-
     if (!mounted) return;
 
-    // 🔥 Check if user is logged in using AuthProvider
+    // 🔥 If user is logged in, load their data
     if (authProvider.isLoggedIn && authProvider.userId != null) {
-      /// ✅ USER LOGGED IN → Load user data and go to main layout
       final userId = authProvider.userId!;
-
-      // Load cart and favorites for logged-in user
       if (mounted) {
         context.read<CartProvider>().loadCart(userId);
         context.read<FavoritesProvider>().loadFavorites(userId);
       }
+    }
 
-      // Navigate to main layout
-      if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          _createRoute(const MainLayout()),
-          (_) => false,
-        );
-      }
-    } else {
-      /// ❌ USER NOT LOGGED IN → AUTH
-      if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          _createRoute(const AuthScreen()),
-          (_) => false,
-        );
-      }
+    // 🔥 ALWAYS go to MainLayout (home screen) - both guests and logged-in users
+    if (mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        _createRoute(const MainLayout()),
+        (_) => false,
+      );
     }
   }
 

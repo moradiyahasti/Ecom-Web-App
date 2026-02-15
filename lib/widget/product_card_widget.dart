@@ -6,6 +6,8 @@ import 'package:demo/presentation/screens/product/product_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+
+import '../utils/auth_guard.dart';
 // ... other imports ...
 
 class ProductCard extends StatefulWidget {
@@ -49,11 +51,10 @@ class _ProductCardState extends State<ProductCard>
 
   Widget _cartButton(BuildContext context) {
     final cartProvider = context.watch<CartProvider>();
-    final authProvider = context.watch<AuthProvider>();
+    context.watch<AuthProvider>();
     final quantity = cartProvider.getQuantity(widget.product.id);
     final isLoading = cartProvider.isLoading;
 
-    // જો cart માં નથી, તો "Add to Cart" button
     if (quantity == 0) {
       return TweenAnimationBuilder<double>(
         tween: Tween(begin: 0.0, end: 1.0),
@@ -65,31 +66,28 @@ class _ProductCardState extends State<ProductCard>
             child: InkWell(
               onTap: isLoading
                   ? null
-                  : () async {
-                      if (authProvider.userId != null) {
-                        await context.read<CartProvider>().addToCart(
-                          userId: authProvider.userId!,
-                          productId: widget.product.id,
-                          quantity: 1,
-                        );
+                  : () {
 
-                        if (mounted) {
-                          _showPremiumSnackbar(
-                            title: "Added to Cart! 🎉",
-                            message: widget.product.title,
-                            isSuccess: true,
-                          );
-                        }
-                      } else {
-                        if (mounted) {
-                          _showPremiumSnackbar(
-                            title: "Login Required",
-                            message: "Please login to add items to cart",
-                            isSuccess: false,
-                          );
-                        }
-                      }
-                    },
+                AuthGuard.requireLogin(
+                  context: context,
+                  onAuthenticated: () async {
+                    final userId = AuthGuard.getCurrentUserId(context)!;
+                    await context.read<CartProvider>().addToCart(
+                      userId: userId,
+                      productId: widget.product.id,
+                      quantity: 1,
+                    );
+
+                    if (mounted) {
+                      _showPremiumSnackbar(
+                        title: "Added to Cart! 🎉",
+                        message: widget.product.title,
+                        isSuccess: true,
+                      );
+                    }
+                  },
+                );
+              },
               child: Container(
                 height: 30,
                 alignment: Alignment.center,
@@ -430,7 +428,7 @@ class _ProductCardState extends State<ProductCard>
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
+    context.watch<AuthProvider>();
     final favProvider = context.watch<FavoritesProvider>();
     final isFavorite = favProvider.isFavorite(widget.product.id);
 
@@ -509,37 +507,35 @@ class _ProductCardState extends State<ProductCard>
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
-                          onTap: () async {
-                            if (authProvider.userId != null) {
-                              await favProvider.toggleFavorite(
-                                authProvider.userId!,
-                                widget.product,
-                              );
+                          onTap: () {
+                            AuthGuard.requireLogin(
+                              context: context,
+                              onAuthenticated: () async {
+                                final userId = AuthGuard.getCurrentUserId(context)!;
 
-                              if (mounted) {
-                                final nowFav = favProvider.isFavorite(
-                                  widget.product.id,
+                                await favProvider.toggleFavorite(
+                                  userId,
+                                  widget.product,
                                 );
 
-                                _showSnackBar(
-                                  title: nowFav ? "Added!" : "Removed!",
-                                  message: nowFav
-                                      ? "${widget.product.title} added to favorites"
-                                      : "${widget.product.title} removed from favorites",
-                                  isSuccess: nowFav,
-                                  // actionText: nowFav ? "VIEW" : null,
-                                  onAction: nowFav
-                                      ? () {
-                                          // Navigate to favorites
-                                          Navigator.pushNamed(
-                                            context,
-                                            '/favorites',
-                                          );
-                                        }
-                                      : null,
-                                );
-                              }
-                            }
+                                if (mounted) {
+                                  final nowFav = favProvider.isFavorite(widget.product.id);
+
+                                  _showSnackBar(
+                                    title: nowFav ? "Added!" : "Removed!",
+                                    message: nowFav
+                                        ? "${widget.product.title} added to favorites"
+                                        : "${widget.product.title} removed from favorites",
+                                    isSuccess: nowFav,
+                                    onAction: nowFav
+                                        ? () {
+                                      Navigator.pushNamed(context, '/favorites');
+                                    }
+                                        : null,
+                                  );
+                                }
+                              },
+                            );
                           },
                           borderRadius: BorderRadius.circular(30),
                           child: Container(

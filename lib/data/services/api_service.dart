@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:io';
 import 'package:demo/data/models/get_cart_item_model.dart';
 import 'package:demo/data/services/token_service.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/http.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/product_model.dart';
@@ -649,7 +651,7 @@ class ApiService {
 
   // ========================= PAYMENT =========================
   // 🔥 FIXED PAYMENT METHODS
-/* 
+  /* 
 /*   static Future<bool> createTransaction({
     required int orderId,
     required String transactionRef,
@@ -960,7 +962,7 @@ class ApiService {
 
   Future<void> openUpiWeb() async {
     final upiUrl =
-        'upi://pay?pa=sawan00meena@ucobank&pn=Test%20Merchant&am=1&cu=INR';
+        'upi://pay?pa=moradiyahasti-2@okhdfcbank&pn=Test%20Merchant&am=1&cu=INR';
 
     final uri = Uri.parse(upiUrl);
 
@@ -1089,218 +1091,379 @@ class ApiService {
     }
   }
 
-
   // Add these payment methods to your existing ApiService class
 
-// ========================= UPI PAYMENT =========================
+  // ========================= UPI PAYMENT =========================
 
-static Future<bool> createTransaction({
-  required int orderId,
-  required String transactionRef,
-  required double amount,
-  required String status,
-}) async {
-  try {
-    log("══════════════════════════════════════════");
-    log("📤 CREATE TRANSACTION");
-    log("   Order ID: $orderId");
-    log("   Transaction Ref: $transactionRef");
-    log("   Amount: $amount");
-    log("   Status: $status");
-    log("══════════════════════════════════════════");
-
-    final url = Uri.parse("$baseUrl/api/transactions/create");
-
-    final body = {
-      "order_id": orderId,
-      "transaction_ref": transactionRef,
-      "amount": amount,
-      "status": status,
-      "payment_method": "UPI",
-    };
-
-    log("URL: $url");
-    log("Body: ${jsonEncode(body)}");
-
-    final response = await http.post(
-      url,
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-      },
-      body: jsonEncode(body),
-    );
-
-    log("📥 Response Status: ${response.statusCode}");
-    log("📥 Response Body: ${response.body}");
-
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      log("✅ Transaction created successfully");
+  static Future<bool> createTransaction({
+    required int orderId,
+    required String transactionRef,
+    required double amount,
+    required String status,
+  }) async {
+    try {
       log("══════════════════════════════════════════");
-      return true;
-    } else {
-      log("❌ Create transaction failed");
+      log("📤 CREATE TRANSACTION");
+      log("   Order ID: $orderId");
+      log("   Transaction Ref: $transactionRef");
+      log("   Amount: $amount");
+      log("   Status: $status");
+      log("══════════════════════════════════════════");
+
+      final url = Uri.parse("$baseUrl/api/transactions/create");
+
+      final body = {
+        "order_id": orderId,
+        "transaction_ref": transactionRef,
+        "amount": amount,
+        "status": status,
+        "payment_method": "UPI",
+      };
+
+      log("URL: $url");
+      log("Body: ${jsonEncode(body)}");
+
+      final response = await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: jsonEncode(body),
+      );
+
+      log("📥 Response Status: ${response.statusCode}");
+      log("📥 Response Body: ${response.body}");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        log("✅ Transaction created successfully");
+        log("══════════════════════════════════════════");
+        return true;
+      } else {
+        log("❌ Create transaction failed");
+        log("══════════════════════════════════════════");
+        return false;
+      }
+    } catch (e, stackTrace) {
+      log("❌ CREATE TRANSACTION ERROR: $e");
+      log("Stack trace: $stackTrace");
       log("══════════════════════════════════════════");
       return false;
     }
-  } catch (e, stackTrace) {
-    log("❌ CREATE TRANSACTION ERROR: $e");
-    log("Stack trace: $stackTrace");
-    log("══════════════════════════════════════════");
-    return false;
   }
-}
 
-static Future<String> getTransactionStatus(String transactionRef) async {
-  try {
-    log("══════════════════════════════════════════");
-    log("📤 GET TRANSACTION STATUS");
-    log("   Transaction Ref: $transactionRef");
-    log("══════════════════════════════════════════");
-
-    final url = Uri.parse('$baseUrl/api/transactions/$transactionRef/status');
-
-    log("URL: $url");
-
-    final response = await http.get(
-      url,
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-      },
-    );
-
-    log("📥 Response Status: ${response.statusCode}");
-    log("📥 Response Body: ${response.body}");
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final status = data['status'] as String;
-
-      log("✅ Transaction status: \"$status\"");
+  static Future<String> getTransactionStatus(String transactionRef) async {
+    try {
+      log("══════════════════════════════════════════");
+      log("📤 GET TRANSACTION STATUS");
+      log("   Transaction Ref: $transactionRef");
       log("══════════════════════════════════════════");
 
-      return status;
-    } else if (response.statusCode == 404) {
-      log("⚠️ Transaction not found");
+      final url = Uri.parse('$baseUrl/api/transactions/$transactionRef/status');
+
+      log("URL: $url");
+
+      final response = await http.get(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+      );
+
+      log("📥 Response Status: ${response.statusCode}");
+      log("📥 Response Body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final status = data['status'] as String;
+
+        log("✅ Transaction status: \"$status\"");
+        log("══════════════════════════════════════════");
+
+        return status;
+      } else if (response.statusCode == 404) {
+        log("⚠️ Transaction not found");
+        log("══════════════════════════════════════════");
+        return 'pending';
+      } else {
+        log("❌ Failed to get transaction status");
+        log("══════════════════════════════════════════");
+        return 'pending';
+      }
+    } catch (e, stackTrace) {
+      log("❌ GET TRANSACTION STATUS ERROR: $e");
+      log("Stack trace: $stackTrace");
       log("══════════════════════════════════════════");
       return 'pending';
-    } else {
-      log("❌ Failed to get transaction status");
-      log("══════════════════════════════════════════");
-      return 'pending';
     }
-  } catch (e, stackTrace) {
-    log("❌ GET TRANSACTION STATUS ERROR: $e");
-    log("Stack trace: $stackTrace");
-    log("══════════════════════════════════════════");
-    return 'pending';
   }
-}
 
-static Future<bool> updateTransaction({
-  required String transactionRef,
-  required String status,
-  required String upiResponse,
-}) async {
-  try {
-    log("══════════════════════════════════════════");
-    log("📤 UPDATE TRANSACTION");
-    log("   Transaction Ref: $transactionRef");
-    log("   New Status: $status");
-    log("   UPI Response: $upiResponse");
-    log("══════════════════════════════════════════");
-
-    final url = Uri.parse("$baseUrl/api/transactions/update");
-
-    final body = {
-      "transaction_ref": transactionRef,
-      "status": status,
-      "upi_response": upiResponse,
-    };
-
-    log("URL: $url");
-    log("Body: ${jsonEncode(body)}");
-
-    final response = await http.post(
-      url,
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-      },
-      body: jsonEncode(body),
-    );
-
-    log("📥 Response Status: ${response.statusCode}");
-    log("📥 Response Body: ${response.body}");
-
-    if (response.statusCode == 200) {
-      log("✅ Transaction updated successfully");
+  static Future<bool> updateTransaction({
+    required String transactionRef,
+    required String status,
+    required String upiResponse,
+  }) async {
+    try {
       log("══════════════════════════════════════════");
-      return true;
-    } else {
-      log("❌ Update transaction failed");
+      log("📤 UPDATE TRANSACTION");
+      log("   Transaction Ref: $transactionRef");
+      log("   New Status: $status");
+      log("   UPI Response: $upiResponse");
+      log("══════════════════════════════════════════");
+
+      final url = Uri.parse("$baseUrl/api/transactions/update");
+
+      final body = {
+        "transaction_ref": transactionRef,
+        "status": status,
+        "upi_response": upiResponse,
+      };
+
+      log("URL: $url");
+      log("Body: ${jsonEncode(body)}");
+
+      final response = await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: jsonEncode(body),
+      );
+
+      log("📥 Response Status: ${response.statusCode}");
+      log("📥 Response Body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        log("✅ Transaction updated successfully");
+        log("══════════════════════════════════════════");
+        return true;
+      } else {
+        log("❌ Update transaction failed");
+        log("══════════════════════════════════════════");
+        return false;
+      }
+    } catch (e, stackTrace) {
+      log("❌ UPDATE TRANSACTION ERROR: $e");
+      log("Stack trace: $stackTrace");
       log("══════════════════════════════════════════");
       return false;
     }
-  } catch (e, stackTrace) {
-    log("❌ UPDATE TRANSACTION ERROR: $e");
-    log("Stack trace: $stackTrace");
-    log("══════════════════════════════════════════");
-    return false;
   }
-}
 
-static Future<bool> confirmPayment({
-  required int orderId,
-  required String transactionRef,
-  required String paymentMethod,
-}) async {
-  try {
-    log("══════════════════════════════════════════");
-    log("📤 CONFIRM PAYMENT");
-    log("   Order ID: $orderId");
-    log("   Transaction Ref: $transactionRef");
-    log("   Payment Method: $paymentMethod");
-    log("══════════════════════════════════════════");
-
-    final url = Uri.parse("$baseUrl/api/transactions/success");
-
-    final body = {
-      "order_id": orderId,
-      "transaction_ref": transactionRef,
-      "payment_method": paymentMethod,
-    };
-
-    log("URL: $url");
-    log("Body: ${jsonEncode(body)}");
-
-    final response = await http.post(
-      url,
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-      },
-      body: jsonEncode(body),
-    );
-
-    log("📥 Response Status: ${response.statusCode}");
-    log("📥 Response Body: ${response.body}");
-
-    if (response.statusCode == 200) {
-      log("✅ Payment confirmed successfully");
+  static Future<bool> confirmPayment({
+    required int orderId,
+    required String transactionRef,
+    required String paymentMethod,
+  }) async {
+    try {
       log("══════════════════════════════════════════");
-      return true;
-    } else {
-      log("❌ Confirm payment failed");
+      log("📤 CONFIRM PAYMENT");
+      log("   Order ID: $orderId");
+      log("   Transaction Ref: $transactionRef");
+      log("   Payment Method: $paymentMethod");
+      log("══════════════════════════════════════════");
+
+      final url = Uri.parse("$baseUrl/api/transactions/success");
+
+      final body = {
+        "order_id": orderId,
+        "transaction_ref": transactionRef,
+        "payment_method": paymentMethod,
+      };
+
+      log("URL: $url");
+      log("Body: ${jsonEncode(body)}");
+
+      final response = await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: jsonEncode(body),
+      );
+
+      log("📥 Response Status: ${response.statusCode}");
+      log("📥 Response Body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        log("✅ Payment confirmed successfully");
+        log("══════════════════════════════════════════");
+        return true;
+      } else {
+        log("❌ Confirm payment failed");
+        log("══════════════════════════════════════════");
+        return false;
+      }
+    } catch (e, stackTrace) {
+      log("❌ CONFIRM PAYMENT ERROR: $e");
+      log("Stack trace: $stackTrace");
       log("══════════════════════════════════════════");
       return false;
     }
-  } catch (e, stackTrace) {
-    log("❌ CONFIRM PAYMENT ERROR: $e");
-    log("Stack trace: $stackTrace");
-    log("══════════════════════════════════════════");
-    return false;
   }
-}
+
+  static Future<Map<String, dynamic>?> uploadPaymentProof({
+    required int orderId,
+    required int userId,
+    required File screenshotFile,
+    String? upiTransactionId,
+  }) async {
+    try {
+      log("════════════════════════════════════════");
+      log("📤 UPLOAD PAYMENT PROOF");
+      log("   Order ID  : $orderId");
+      log("   User ID   : $userId");
+      log("   File path : ${screenshotFile.path}");
+      log("════════════════════════════════════════");
+
+      final url = Uri.parse("$baseUrl/api/payment-proof/upload");
+
+      // Multipart request (required for file upload)
+      final request = http.MultipartRequest('POST', url);
+
+      // Text fields
+      request.fields['order_id'] = orderId.toString();
+      request.fields['user_id'] = userId.toString();
+      if (upiTransactionId != null && upiTransactionId.trim().isNotEmpty) {
+        request.fields['upi_transaction_id'] = upiTransactionId.trim();
+      }
+
+      // Detect image MIME type from extension
+      // ✅ FIX: No 'path' package needed — extract extension manually
+      final filePath = screenshotFile.path.toLowerCase();
+      String mimeSubtype = 'jpeg'; // default
+      if (filePath.endsWith('.png')) mimeSubtype = 'png';
+      if (filePath.endsWith('.pdf')) mimeSubtype = 'pdf';
+
+      // Attach the screenshot file
+      final multipartFile = await http.MultipartFile.fromPath(
+        'screenshot',
+        screenshotFile.path,
+        contentType: MediaType('image', mimeSubtype),
+      );
+      request.files.add(multipartFile);
+
+      log("🚀 Sending multipart request...");
+
+      final streamedResponse = await request.send();
+      final responseBody = await streamedResponse.stream.bytesToString();
+
+      log("📥 Status : ${streamedResponse.statusCode}");
+      log("📥 Body   : $responseBody");
+
+      if (streamedResponse.statusCode == 200) {
+        final data = jsonDecode(responseBody);
+        if (data['success'] == true) {
+          log("✅ Payment proof uploaded successfully");
+          log("════════════════════════════════════════");
+          return data;
+        }
+      }
+
+      log("❌ Upload failed: $responseBody");
+      log("════════════════════════════════════════");
+      return null;
+    } catch (e, st) {
+      log("❌ UPLOAD PAYMENT PROOF ERROR: $e");
+      log("Stack: $st");
+      return null;
+    }
+  }
+
+  /// Get payment proof status for an order
+  static Future<Map<String, dynamic>?> getPaymentProofStatus({
+    required int orderId,
+  }) async {
+    try {
+      log("🔍 GET PAYMENT PROOF STATUS: order_id=$orderId");
+
+      final url = Uri.parse("$baseUrl/api/payment-proof/status/$orderId");
+      final response = await http.get(url, headers: headers);
+
+      log("📥 Status: ${response.statusCode}");
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          log("✅ Got payment proof status");
+          return data['data'];
+        }
+      }
+      return null;
+    } catch (e) {
+      log("❌ GET PAYMENT PROOF STATUS ERROR: $e");
+      return null;
+    }
+  }
+
+  // ========================= ADMIN PAYMENT PROOF =========================
+
+  /// Admin: get all pending payment verifications
+  static Future<List<Map<String, dynamic>>> getAdminPendingPayments() async {
+    try {
+      log("📋 ADMIN: GET PENDING PAYMENTS");
+
+      final url = Uri.parse("$baseUrl/api/payment-proof/admin/pending");
+      final response = await http.get(url, headers: headers);
+
+      log("📥 Status: ${response.statusCode}");
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          return List<Map<String, dynamic>>.from(data['data']);
+        }
+      }
+      return [];
+    } catch (e) {
+      log("❌ GET ADMIN PENDING ERROR: $e");
+      return [];
+    }
+  }
+
+  /// Admin: approve or reject a payment
+  static Future<bool> adminVerifyPayment({
+    required int orderId,
+    required int adminId,
+    required bool isApproved,
+    String? rejectionReason,
+  }) async {
+    try {
+      log("════════════════════════════════════════");
+      log("🔐 ADMIN VERIFY PAYMENT");
+      log("   Order ID  : $orderId");
+      log("   Approved  : $isApproved");
+      log("════════════════════════════════════════");
+
+      final url = Uri.parse("$baseUrl/api/payment-proof/admin/verify");
+      final body = {
+        "order_id": orderId,
+        "admin_id": adminId,
+        "is_verified": isApproved,
+        "rejection_reason": rejectionReason,
+      };
+
+      final response = await http.post(
+        url,
+        headers: headers,
+        body: jsonEncode(body),
+      );
+
+      log("📥 Status: ${response.statusCode}");
+      log("📥 Body  : ${response.body}");
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        log("✅ Admin action completed");
+        return data['success'] == true;
+      }
+      return false;
+    } catch (e) {
+      log("❌ ADMIN VERIFY ERROR: $e");
+      return false;
+    }
+  }
 }

@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+import '../../../utils/auth_guard.dart';
+
 class EnhancedNailProductDetails extends StatefulWidget {
   final String title;
   final String mainImage;
@@ -293,43 +295,33 @@ class _EnhancedNailProductDetailsState extends State<EnhancedNailProductDetails>
                       top: 12,
                       right: 12,
                       child: InkWell(
-                        onTap: () async {
-                          // 🔥 GET AUTH PROVIDER
-                          final authProvider = context.read<AuthProvider>();
+                        onTap: () {
+                          AuthGuard.requireLogin(
+                            context: context,
+                            onAuthenticated: () async {
+                              final userId = AuthGuard.getCurrentUserId(context)!;
 
-                          if (authProvider.userId != null) {
-                            // 🔥 TOGGLE FAVORITE - Use productId only (no product object needed)
-                            await context
-                                .read<FavoritesProvider>()
-                                .toggleFavorite(
-                                  authProvider.userId!,
-                                  null, // product object નથી, માત્ર productId use કરો
-                                  productId: widget.productId,
-                                );
-
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    isFavorite
-                                        ? "Removed from favorites"
-                                        : "Added to favorites",
-                                  ),
-                                  duration: const Duration(seconds: 1),
-                                  behavior: SnackBarBehavior.floating,
-                                ),
+                              await context.read<FavoritesProvider>().toggleFavorite(
+                                userId,
+                                null,
+                                productId: widget.productId,
                               );
-                            }
-                          } else {
-                            // User not logged in
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Please login to add favorites'),
-                                duration: Duration(seconds: 2),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          }
+
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      isFavorite
+                                          ? "Removed from favorites"
+                                          : "Added to favorites",
+                                    ),
+                                    duration: const Duration(seconds: 1),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              }
+                            },
+                          );
                         },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 300),
@@ -554,40 +546,32 @@ class _EnhancedNailProductDetailsState extends State<EnhancedNailProductDetails>
             child: ElevatedButton(
               onPressed: isLoading
                   ? null
-                  : () async {
-                      _controller.forward().then((_) => _controller.reverse());
+                  : () {
+                                _controller.forward().then((_) => _controller.reverse());
 
-                      // 🔥 GET AUTH PROVIDER
-                      final authProvider = context.read<AuthProvider>();
+                AuthGuard.requireLogin(
+                  context: context,
+                  onAuthenticated: () async {
+                    final userId = AuthGuard.getCurrentUserId(context)!;
 
-                      if (authProvider.userId != null) {
-                        // 🔥 ADD TO CART WITH DYNAMIC USER ID
-                        await cartProvider.addToCart(
-                          userId: authProvider.userId!,
-                          productId: widget.productId,
-                          quantity: qty,
-                        );
+                    await cartProvider.addToCart(
+                      userId: userId,
+                      productId: widget.productId,
+                      quantity: qty,
+                    );
 
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text("${widget.title} added to cart"),
-                              duration: const Duration(seconds: 1),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        }
-                      } else {
-                        // User not logged in
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Please login to add to cart'),
-                            duration: Duration(seconds: 2),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      }
-                    },
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text("${widget.title} added to cart"),
+                          duration: const Duration(seconds: 1),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  },
+                );
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: isLoading
                     ? Colors.grey
@@ -712,43 +696,35 @@ class _EnhancedNailProductDetailsState extends State<EnhancedNailProductDetails>
               borderRadius: BorderRadius.circular(16),
             ),
             child: ElevatedButton(
-              onPressed: () async {
+              onPressed: () {
                 _controller.forward().then((_) => _controller.reverse());
 
-                // 🔥 GET AUTH PROVIDER
-                final authProvider = context.read<AuthProvider>();
+                AuthGuard.requireLogin(
+                  context: context,
+                  onAuthenticated: () async {
+                    final userId = AuthGuard.getCurrentUserId(context)!;
 
-                if (authProvider.userId != null) {
-                  // જો cart માં નથી તો add કરો
-                  if (cartQuantity == 0) {
-                    await cartProvider.addToCart(
-                      userId: authProvider.userId!,
-                      productId: widget.productId,
-                      quantity: qty,
-                    );
-                  }
+                    // જો cart માં નથી તો add કરો
+                    if (cartQuantity == 0) {
+                      await cartProvider.addToCart(
+                        userId: userId,
+                        productId: widget.productId,
+                        quantity: qty,
+                      );
+                    }
 
-                  // Cart screen પર જાવ
-                  if (mounted) {
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            const MainLayout(initialIndex: 1), // Cart tab
-                      ),
-                      (route) => false,
-                    );
-                  }
-                } else {
-                  // User not logged in
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please login to buy'),
-                      duration: Duration(seconds: 2),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                }
+                    // Cart screen પર જાવ
+                    if (mounted) {
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const MainLayout(initialIndex: 1),
+                        ),
+                            (route) => false,
+                      );
+                    }
+                  },
+                );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,

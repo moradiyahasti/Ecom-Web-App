@@ -10,7 +10,6 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:upi_pay/upi_pay.dart';
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:url_launcher/url_launcher.dart'; // ✅ ADD THIS
 
 /// UNIVERSAL PAYMENT SCREEN
 /// Mobile: UPI Pay package (automatic verification)
@@ -33,9 +32,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   String? _currentTransactionRef;
   bool _isProcessing = false;
-  bool _paymentConfirmed = false;
   bool _transactionCreated = false;
-  bool _showManualCheck = false; // For web manual verification
+  // For web manual verification
 
   List<ApplicationMeta>? _apps;
 
@@ -47,14 +45,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
     super.initState();
 
     _initConnectivity();
-    
-    // Set amount from widget
-    _amountController.text = widget.totalAmount.toString();
-    
-    // Set UPI address
-    _upiAddressController.text = "sawan00meena@ucobank";
 
-    // Generate unique transaction reference  
+    // Set amount from widget
+    _amountController.text = /* widget.totalAmount.toString() */ "1";
+
+    // Set UPI address
+    _upiAddressController.text = "moradiyahasti-2@okhdfcbank";
+
+    // Generate unique transaction reference
     _currentTransactionRef = DateTime.now().millisecondsSinceEpoch.toString();
 
     // ✅ Initialize UPI Pay ONLY on mobile
@@ -73,16 +71,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   Future<void> _discoverUpiApps() async {
     if (kIsWeb || _upiPayPlugin == null) return;
-    
+
     try {
       _apps = await _upiPayPlugin!.getInstalledUpiApplications(
         statusType: UpiApplicationDiscoveryAppStatusType.all,
       );
-      
+
       if (mounted) {
         setState(() {});
       }
-      
+
       log("📱 Found ${_apps?.length ?? 0} UPI apps");
     } catch (e) {
       log("❌ Error discovering UPI apps: $e");
@@ -124,81 +122,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   String get _upiString =>
       'upi://pay?pa=${_upiAddressController.text}&pn=ShreeNails&am=${_amountController.text}&cu=INR&tn=Order%20Payment&tr=$_currentTransactionRef';
-
-  /// 🎯 Open UPI payment via deep link (when QR is clicked)
-  Future<void> _openUpiPayment() async {
-    try {
-      log("🎯 User tapped QR code - Opening UPI payment");
-      
-      // For WEB: Show instructions
-      if (kIsWeb) {
-        setState(() => _showManualCheck = true);
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              '🌐 On web, please use a UPI app on your phone to scan the QR code',
-            ),
-            backgroundColor: Colors.blue,
-            duration: Duration(seconds: 3),
-          ),
-        );
-        return;
-      }
-
-      // For MOBILE: Try to open any UPI app
-      if (_apps != null && _apps!.isNotEmpty) {
-        // Open the first available UPI app
-        await _initiateUpiPayment(_apps!.first);
-      } else {
-        // Fallback: Try to open UPI URL scheme directly
-        log("📱 No UPI apps discovered, trying direct UPI link");
-        
-        // Create transaction first
-        await _createPendingTransaction(_currentTransactionRef!);
-        
-        // Try launching UPI deep link
-        final Uri upiUri = Uri.parse(_upiString);
-        
-        if (await canLaunchUrl(upiUri)) {
-          final launched = await launchUrl(
-            upiUri,
-            mode: LaunchMode.externalApplication,
-          );
-          
-          if (launched) {
-            log("✅ UPI app opened via deep link");
-            
-            // Show manual verification for web/fallback
-            setState(() => _showManualCheck = true);
-            
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Complete payment and click "I Have Paid" below',
-                ),
-                backgroundColor: Colors.deepPurple,
-                duration: Duration(seconds: 4),
-              ),
-            );
-          }
-        } else {
-          throw Exception("No UPI app available");
-        }
-      }
-    } catch (e) {
-      log("❌ Error opening UPI: $e");
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not open UPI app: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
 
   /// ✅ STEP 1: Create pending transaction in database
   Future<bool> _createPendingTransaction(String transactionRef) async {
@@ -260,7 +183,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       }
 
       log("📱 Launching UPI app...");
-      
+
       final response = await _upiPayPlugin!.initiateTransaction(
         amount: _amountController.text,
         app: app.upiApplication,
@@ -279,13 +202,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
       if (!mounted) return;
 
       await _handleUpiResponse(response);
-
     } catch (e) {
       log("❌ UPI Payment Error: $e");
-      
+
       if (mounted) {
         setState(() => _isProcessing = false);
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Payment failed: $e'),
@@ -329,7 +251,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
       if (status == 'success') {
         log("📝 STEP 4: Confirming payment to backend");
-        
+
         await _confirmPaymentToBackend(_currentTransactionRef!);
 
         if (mounted) {
@@ -344,10 +266,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
       }
     } catch (e) {
       log("❌ Handle response error: $e");
-      
+
       if (mounted) {
         setState(() => _isProcessing = false);
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error processing payment: $e'),
@@ -377,7 +299,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
       // Check payment status
       log('🔍 Checking payment status from database...');
-      
+
       final status = await ApiService.getTransactionStatus(
         _currentTransactionRef!,
       ).timeout(const Duration(seconds: 10), onTimeout: () => 'pending');
@@ -399,12 +321,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
         setState(() => _isProcessing = false);
         _showSuccessDialog();
-        
       } else if (status == 'failed') {
         log('❌ PAYMENT FAILED');
         setState(() => _isProcessing = false);
         _showFailureDialog('Payment was declined or failed');
-        
       } else {
         log('⏳ Payment still pending');
         setState(() => _isProcessing = false);
@@ -419,9 +339,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
           ),
         );
       }
-      
+
       log('══════════════════════════════════════════');
-      
     } catch (e) {
       log('❌ Check payment error: $e');
 
@@ -454,7 +373,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (!success) throw Exception("Backend confirmation failed");
 
     log("✅ Payment confirmed successfully");
-    _paymentConfirmed = true;
 
     if (mounted) {
       final userId = widget.orderDetails?["user_id"];
@@ -466,7 +384,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   void _showSuccessDialog() {
     if (!mounted) return;
-    
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -515,7 +433,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   void _showFailureDialog(String reason) {
     if (!mounted) return;
-    
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -545,16 +463,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
             onPressed: () {
               Navigator.pop(context);
               setState(() {
-                _currentTransactionRef =
-                    DateTime.now().millisecondsSinceEpoch.toString();
+                _currentTransactionRef = DateTime.now().millisecondsSinceEpoch
+                    .toString();
                 _transactionCreated = false;
                 _isProcessing = false;
-                _showManualCheck = false;
               });
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.deepPurple,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
             child: const Text(
               'Retry Payment',
               style: TextStyle(color: Colors.white),
@@ -637,7 +552,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         children: [
                           const Text(
                             'Total Amount',
-                            style: TextStyle(color: Colors.white70, fontSize: 16),
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 16,
+                            ),
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -680,10 +598,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           const SizedBox(height: 20),
 
                           // 📱 MOBILE: UPI Apps Grid
-                          if (!kIsWeb && _apps != null && _apps!.isNotEmpty) ...[
+                          if (!kIsWeb &&
+                              _apps != null &&
+                              _apps!.isNotEmpty) ...[
                             const Text(
                               'Select Your UPI App:',
-                              style: TextStyle(fontSize: 14, color: Colors.grey),
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey,
+                              ),
                             ),
                             const SizedBox(height: 12),
                             _buildUpiAppsGrid(),
@@ -693,7 +616,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                 Expanded(child: Divider()),
                                 Padding(
                                   padding: EdgeInsets.symmetric(horizontal: 16),
-                                  child: Text('OR', style: TextStyle(color: Colors.grey)),
+                                  child: Text(
+                                    'OR',
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
                                 ),
                                 Expanded(child: Divider()),
                               ],
@@ -709,85 +635,31 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             const SizedBox(height: 24),
                           ],
 
-                          // QR Code (Both) - ✅ NOW CLICKABLE!
+                          // QR Code (Both)
                           const Text(
-                            'Tap QR to Pay',
+                            'Scan QR Code',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Click QR to open UPI app or scan to pay',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
                           const SizedBox(height: 16),
 
-                          // ✅ CLICKABLE QR CODE
-                          InkWell(
-                            onTap: () => _openUpiPayment(),
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: Border.all(
-                                  color: Colors.deepPurple,
-                                  width: 3,
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.deepPurple.withOpacity(0.2),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              border: Border.all(
+                                color: Colors.deepPurple,
+                                width: 3,
                               ),
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  QrImageView(
-                                    data: _upiString,
-                                    version: QrVersions.auto,
-                                    size: 220,
-                                    backgroundColor: Colors.white,
-                                  ),
-                                  // Tap indicator
-                                  Positioned(
-                                    bottom: 0,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 6,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.deepPurple,
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: const Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.touch_app,
-                                            color: Colors.white,
-                                            size: 16,
-                                          ),
-                                          SizedBox(width: 4),
-                                          Text(
-                                            'TAP TO PAY',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: QrImageView(
+                              data: _upiString,
+                              version: QrVersions.auto,
+                              size: 220,
+                              backgroundColor: Colors.white,
                             ),
                           ),
 
@@ -804,7 +676,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               children: [
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       const Text(
                                         'UPI ID:',
@@ -846,15 +719,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             ),
                           ),
 
-                          // 🌐 WEB OR MOBILE FALLBACK: Manual Check Button
-                          if (kIsWeb || _showManualCheck) ...[
+                          // 🌐 WEB: Manual Check Button
+                          if (kIsWeb) ...[
                             const SizedBox(height: 24),
                             Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
                                 color: Colors.green[50],
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.green, width: 2),
+                                border: Border.all(
+                                  color: Colors.green,
+                                  width: 2,
+                                ),
                               ),
                               child: Column(
                                 children: [
@@ -873,13 +749,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                   ),
                                   const SizedBox(height: 8),
                                   const Text(
-                                    'After payment, click below to verify',
+                                    'After payment via QR, click below to verify',
                                     style: TextStyle(color: Colors.grey),
                                     textAlign: TextAlign.center,
                                   ),
                                   const SizedBox(height: 16),
                                   ElevatedButton.icon(
-                                    onPressed: _isProcessing ? null : _checkPaymentManually,
+                                    onPressed: _isProcessing
+                                        ? null
+                                        : _checkPaymentManually,
                                     icon: _isProcessing
                                         ? const SizedBox(
                                             width: 20,
@@ -891,11 +769,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                           )
                                         : const Icon(Icons.verified),
                                     label: Text(
-                                      _isProcessing ? 'Checking...' : 'I Have Paid',
+                                      _isProcessing
+                                          ? 'Checking...'
+                                          : 'I Have Paid',
                                     ),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.green,
-                                      minimumSize: const Size(double.infinity, 50),
+                                      minimumSize: const Size(
+                                        double.infinity,
+                                        50,
+                                      ),
                                       textStyle: const TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
@@ -964,13 +847,22 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           ),
                           const SizedBox(height: 12),
                           if (kIsWeb) ...[
-                            _buildInstruction('1', 'Scan QR with UPI app (or tap QR on mobile)'),
-                            _buildInstruction('2', 'Complete payment in UPI app'),
-                            _buildInstruction('3', 'Click "I Have Paid" button above'),
+                            _buildInstruction(
+                              '1',
+                              'Scan QR code with your UPI app',
+                            ),
+                            _buildInstruction(
+                              '2',
+                              'Complete payment in UPI app',
+                            ),
+                            _buildInstruction(
+                              '3',
+                              'Click "I Have Paid" button above',
+                            ),
                           ] else ...[
-                            _buildInstruction('1', 'Tap QR code OR click UPI app'),
+                            _buildInstruction('1', 'Click UPI app OR scan QR'),
                             _buildInstruction('2', 'Complete payment'),
-                            _buildInstruction('3', 'Return here for confirmation'),
+                            _buildInstruction('3', 'Auto-verified ✅'),
                           ],
                         ],
                       ),
@@ -1002,10 +894,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           const SizedBox(height: 12),
           Text(
             'Please wait while we confirm your payment',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-            ),
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
             textAlign: TextAlign.center,
           ),
         ],
@@ -1017,10 +906,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (_apps == null || _apps!.isEmpty) return const SizedBox.shrink();
 
     final sortedApps = List<ApplicationMeta>.from(_apps!);
-    sortedApps.sort((a, b) => a.upiApplication
-        .getAppName()
-        .toLowerCase()
-        .compareTo(b.upiApplication.getAppName().toLowerCase()));
+    sortedApps.sort(
+      (a, b) => a.upiApplication.getAppName().toLowerCase().compareTo(
+        b.upiApplication.getAppName().toLowerCase(),
+      ),
+    );
 
     return GridView.count(
       crossAxisCount: 4,
@@ -1086,12 +976,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ),
           ),
           const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: 14),
-            ),
-          ),
+          Expanded(child: Text(text, style: const TextStyle(fontSize: 14))),
         ],
       ),
     );
