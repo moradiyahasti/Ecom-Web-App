@@ -67,31 +67,165 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
 
   // ─── OPEN UPI APP ─────────────────────────────────────────
   Future<void> _openUpiApp() async {
-    final upiUrl = 'upi://pay'
-        '?pa=${Uri.encodeComponent(widget.upiId)}'
+    final upiParams =
+        'pa=${Uri.encodeComponent(widget.upiId)}'
         '&pn=${Uri.encodeComponent("Shree Nails")}'
-        '&am=${1}'
+        '&am=${widget.totalAmount}'
         '&cu=INR'
-        '&tn=${Uri.encodeComponent("Order%20%23${widget.orderId}")}';
+        '&tn=${Uri.encodeComponent("Order #${widget.orderId}")}';
 
-    final uri = Uri.parse(upiUrl);
+    final upiUrl = 'upi://pay?$upiParams';
+    final upiUri = Uri.parse(upiUrl);
     debugPrint("🚀 UPI URL: $upiUrl");
 
-    try {
-      if (await canLaunchUrl(uri)) {
-        // Mark step BEFORE launching so lifecycle observer works
-        setState(() => _flowStep = 'upi_open');
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        _showSnack(
-          "No UPI app found. Install GPay, PhonePe, or Paytm.",
-          isError: true,
-        );
-      }
-    } catch (e) {
-      setState(() => _flowStep = 'idle');
-      _showSnack("Error opening UPI: $e", isError: true);
+    final canOpen = await canLaunchUrl(upiUri);
+
+    if (canOpen) {
+      // ✅ Native Flutter app — direct open
+      setState(() => _flowStep = 'upi_open');
+      await launchUrl(upiUri, mode: LaunchMode.externalApplication);
+    } else {
+      // ❌ Browser/web — show app chooser dialog
+      setState(() => _flowStep = 'upi_open');
+      if (mounted) _showUpiOptionsDialog(upiParams);
     }
+  }
+
+  // ── UPI app chooser (browser/web fallback) ──────────────
+  void _showUpiOptionsDialog(String upiParams) {
+    final apps = [
+      {
+        'name': 'Google Pay',
+        'icon': Icons.g_mobiledata,
+        'color': Colors.blue.shade600,
+        'url': 'gpay://upi/pay?$upiParams',
+        'intent':
+            'intent://upi/pay?$upiParams#Intent;scheme=gpay;package=com.google.android.apps.nbu.paisa.user;end',
+      },
+      {
+        'name': 'PhonePe',
+        'icon': Icons.phone_android,
+        'color': const Color(0xFF5F259F),
+        'url': 'phonepe://pay?$upiParams',
+        'intent':
+            'intent://pay?$upiParams#Intent;scheme=phonepe;package=com.phonepe.app;end',
+      },
+      {
+        'name': 'Paytm',
+        'icon': Icons.payment,
+        'color': Colors.blue.shade800,
+        'url': 'paytmmp://pay?$upiParams',
+        'intent':
+            'intent://pay?$upiParams#Intent;scheme=paytmmp;package=net.one97.paytm;end',
+      },
+      {
+        'name': 'BHIM / Any UPI app',
+        'icon': Icons.account_balance,
+        'color': Colors.orange.shade700,
+        'url': 'upi://pay?$upiParams',
+        'intent':
+            'intent://pay?$upiParams#Intent;scheme=upi;end',
+      },
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle bar
+            Center(
+              child: Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text("Select UPI App",
+                style: GoogleFonts.poppins(
+                    fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(
+              "Pay ₹${widget.totalAmount.toStringAsFixed(0)} to ${widget.upiId}",
+              style: GoogleFonts.poppins(
+                  fontSize: 13, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 16),
+
+            ...apps.map((app) => ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                    color: (app['color'] as Color).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12)),
+                child: Icon(app['icon'] as IconData,
+                    color: app['color'] as Color),
+              ),
+              title: Text(app['name'] as String,
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
+              trailing:
+                  const Icon(Icons.arrow_forward_ios, size: 14),
+              onTap: () async {
+                Navigator.pop(context);
+                // Try app-specific URL first, then intent URL
+                for (final urlStr in [
+                  app['url'] as String,
+                  app['intent'] as String,
+                ]) {
+                  try {
+                    final uri = Uri.parse(urlStr);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri,
+                          mode: LaunchMode.externalApplication);
+                      return;
+                    }
+                  } catch (_) {}
+                }
+                if (mounted) {
+                  _showSnack(
+                      "${app['name']} open nai thyu. App install chhe?",
+                      isError: true);
+                }
+              },
+            )),
+
+            const Divider(height: 24),
+
+            // "I have paid" option
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  setState(() => _flowStep = 'returned');
+                },
+                icon: Icon(Icons.check_circle_outline,
+                    color: Colors.green.shade600),
+                label: Text("Payment karyu — Screenshot upload karo",
+                    style: GoogleFonts.poppins(
+                        color: Colors.green.shade700,
+                        fontWeight: FontWeight.w600)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  side:
+                      BorderSide(color: Colors.green.shade400, width: 2),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // ─── PICK IMAGE ───────────────────────────────────────────
@@ -275,7 +409,7 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
           const SizedBox(height: 16),
           _infoRow("Order ID", "#${widget.orderId}"),
           _infoRow("Amount to Pay",
-              "₹${1.toStringAsFixed(0)}"),
+              "₹${widget.totalAmount.toStringAsFixed(0)}"),
           _infoRow("UPI ID", widget.upiId),
         ],
       ),
@@ -360,7 +494,7 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
                 label: Text(
                   isDone
                       ? "Pay Again"
-                      : "Pay ₹${1.toStringAsFixed(0)} via UPI",
+                      : "Pay ₹${widget.totalAmount.toStringAsFixed(0)} via UPI",
                   style: GoogleFonts.poppins(
                       fontSize: 15, fontWeight: FontWeight.bold),
                 ),
