@@ -70,7 +70,7 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
     final upiUrl = 'upi://pay'
         '?pa=${Uri.encodeComponent(widget.upiId)}'
         '&pn=${Uri.encodeComponent("Shree Nails")}'
-        '&am=${widget.totalAmount}'
+        '&am=${1}'
         '&cu=INR'
         '&tn=${Uri.encodeComponent("Order%20%23${widget.orderId}")}';
 
@@ -275,7 +275,7 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
           const SizedBox(height: 16),
           _infoRow("Order ID", "#${widget.orderId}"),
           _infoRow("Amount to Pay",
-              "₹${widget.totalAmount.toStringAsFixed(0)}"),
+              "₹${1.toStringAsFixed(0)}"),
           _infoRow("UPI ID", widget.upiId),
         ],
       ),
@@ -360,7 +360,7 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
                 label: Text(
                   isDone
                       ? "Pay Again"
-                      : "Pay ₹${widget.totalAmount.toStringAsFixed(0)} via UPI",
+                      : "Pay ₹${1.toStringAsFixed(0)} via UPI",
                   style: GoogleFonts.poppins(
                       fontSize: 15, fontWeight: FontWeight.bold),
                 ),
@@ -374,19 +374,28 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
               ),
             ),
 
-          // Already paid link (only on idle)
-          if (_flowStep == 'idle') ...[
-            const SizedBox(height: 10),
-            Center(
-              child: TextButton(
+          // ✅ "I have paid" button — sirf upi_open state ma dikhe
+          if (_flowStep == 'upi_open') ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
                 onPressed: () => setState(() => _flowStep = 'returned'),
-                child: Text(
-                  "Already paid? Upload screenshot →",
+                icon: const Icon(Icons.check_circle_outline,
+                    color: Colors.green),
+                label: Text(
+                  "I have paid — Upload Screenshot",
                   style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
-                    decoration: TextDecoration.underline,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.green.shade700,
                   ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  side: BorderSide(color: Colors.green.shade400, width: 2),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                 ),
               ),
             ),
