@@ -1,11 +1,17 @@
-// lib/presentation/screens/Settings/payment_proff.dart
+// lib/presentation/screens/Settings/payment_proff_web_to_app.dart
+// ✅ WEB → MOBILE APP REDIRECT SOLUTION
 
 import 'dart:io';
 import 'package:demo/data/services/api_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // For Clipboard
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+// ✅ Conditional import for web
+import 'dart:html' as html' if (dart.library.io) 'dart:io';
 
 class PaymentProofScreen extends StatefulWidget {
   final int orderId;
@@ -25,99 +31,169 @@ class PaymentProofScreen extends StatefulWidget {
   State<PaymentProofScreen> createState() => _PaymentProofScreenState();
 }
 
-class _PaymentProofScreenState extends State<PaymentProofScreen>
-    with WidgetsBindingObserver {
+class _PaymentProofScreenState extends State<PaymentProofScreen> {
   File? _selectedImage;
   final TextEditingController _txnIdController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
 
   bool _isUploading = false;
-
-  // ─── FLOW STATE ───────────────────────────────────────────
-  // Step 1: idle      → user hasn't clicked Pay yet
-  // Step 2: upi_open  → UPI app was launched, waiting for return
-  // Step 3: returned  → user came back from UPI app (show upload)
-  String _flowStep = 'idle'; // 'idle' | 'upi_open' | 'returned'
-
-  // ─── App lifecycle: detect when user returns from UPI app ──
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
+  String _flowStep = 'idle';
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _txnIdController.dispose();
     super.dispose();
   }
 
-  /// Called when app comes back to foreground
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-
-    // User returned from UPI app
-    if (state == AppLifecycleState.resumed && _flowStep == 'upi_open') {
-      debugPrint("📲 Returned from UPI app");
-      setState(() => _flowStep = 'returned');
-    }
-  }
-
-  // ─── 🔥 NEW: SHOW UPI APP CHOOSER DIALOG ─────────────────
-  Future<void> _openUpiApp() async {
-    // Build UPI payment URL parameters
+  // ✅ WEB → APP REDIRECT: Build UPI payment URL
+  String _buildUpiUrl(String scheme) {
     final upiParams = 'pa=${Uri.encodeComponent(widget.upiId)}'
         '&pn=${Uri.encodeComponent("Shree Nails")}'
         '&am=${widget.totalAmount.toInt()}'
         '&cu=INR'
         '&tn=${Uri.encodeComponent("Order #${widget.orderId}")}';
 
-    // Set flow state to upi_open BEFORE showing dialog
-    setState(() => _flowStep = 'upi_open');
-
-    // Show UPI app chooser dialog
-    await _showUpiAppChooser(upiParams);
+    return '$scheme://upi/pay?$upiParams';
   }
 
-  // ── 🔥 UPI APP CHOOSER DIALOG ──────────────────────────
-  Future<void> _showUpiAppChooser(String upiParams) async {
+  // ✅ ANDROID INTENT URL (works from browser)
+  String _buildIntentUrl(String packageName, String scheme) {
+    final upiParams = 'pa=${Uri.encodeComponent(widget.upiId)}'
+        '&pn=${Uri.encodeComponent("Shree Nails")}'
+        '&am=${widget.totalAmount.toInt()}'
+        '&cu=INR'
+        '&tn=${Uri.encodeComponent("Order #${widget.orderId}")}';
+
+    return 'intent://upi/pay?$upiParams#Intent;scheme=$scheme;package=$packageName;end';
+  }
+
+  // ✅ OPEN UPI APP FROM WEB
+  Future<void> _openUpiAppFromWeb(String appName, String packageName, String scheme) async {
+    setState(() => _flowStep = 'upi_open');
+
+    if (kIsWeb) {
+      // ✅ WEB: Use Intent URL or window.location
+      final intentUrl = _buildIntentUrl(packageName, scheme);
+      
+      debugPrint("🚀 Opening from web: $intentUrl");
+      
+      try {
+        // Method 1: Try url_launcher
+        final uri = Uri.parse(intentUrl);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+          debugPrint("✅ Launched via url_launcher");
+          return;
+        }
+      } catch (e) {
+        debugPrint("❌ url_launcher failed: $e");
+      }
+
+      // Method 2: Direct window.location (web only)
+      try {
+        html.window.location.href = intentUrl;
+        debugPrint("✅ Redirected via window.location");
+        
+        // Set timer to check if user returns
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) {
+            // If still on page after 3 seconds, app might not have opened
+            _showAppNotInstalledDialog(appName);
+          }
+        });
+        return;
+      } catch (e) {
+        debugPrint("❌ window.location failed: $e");
+      }
+
+      // Method 3: Create invisible link and click it
+      try {
+        final anchor = html.AnchorElement(href: intentUrl);
+        anchor.click();
+        debugPrint("✅ Triggered via anchor click");
+      } catch (e) {
+        debugPrint("❌ anchor click failed: $e");
+      }
+
+    } else {
+      // ✅ MOBILE: Direct app launch
+      final upiUrl = _buildUpiUrl(scheme);
+      try {
+        final uri = Uri.parse(upiUrl);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      } catch (e) {
+        _showSnack("Could not open $appName", isError: true);
+      }
+    }
+  }
+
+  void _showAppNotInstalledDialog(String appName) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text("$appName Not Installed?"),
+        content: Text(
+          "If $appName didn't open:\n\n"
+          "1. Make sure the app is installed\n"
+          "2. Try clicking the button again\n"
+          "3. Or use 'Copy UPI ID' option below",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              setState(() => _flowStep = 'returned');
+            },
+            child: const Text("I have paid"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ SHOW UPI APP CHOOSER
+  Future<void> _showUpiApps() async {
     final apps = [
       {
         'name': 'Google Pay',
+        'package': 'com.google.android.apps.nbu.paisa.user',
+        'scheme': 'gpay',
         'icon': Icons.g_mobiledata,
         'color': Colors.blue.shade600,
-        'package': 'com.google.android.apps.nbu.paisa.user',
-        'schemes': ['gpay', 'tez', 'paytm'], // Multiple schemes to try
       },
       {
         'name': 'PhonePe',
+        'package': 'com.phonepe.app',
+        'scheme': 'phonepe',
         'icon': Icons.phone_android,
         'color': const Color(0xFF5F259F),
-        'package': 'com.phonepe.app',
-        'schemes': ['phonepe'],
       },
       {
         'name': 'Paytm',
+        'package': 'net.one97.paytm',
+        'scheme': 'paytmmp',
         'icon': Icons.payment,
         'color': Colors.blue.shade800,
-        'package': 'net.one97.paytm',
-        'schemes': ['paytmmp'],
       },
       {
         'name': 'BHIM',
+        'package': 'in.org.npci.upiapp',
+        'scheme': 'upi',
         'icon': Icons.account_balance,
         'color': Colors.orange.shade700,
-        'package': 'in.org.npci.upiapp',
-        'schemes': ['bhim', 'upi'],
       },
     ];
 
     await showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) => Container(
         decoration: const BoxDecoration(
           color: Colors.white,
@@ -141,7 +217,6 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
               ),
             ),
 
-            // Title
             Text(
               "Select UPI App",
               style: GoogleFonts.poppins(
@@ -159,8 +234,8 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
             ),
             const SizedBox(height: 20),
 
-            // UPI App List
-            ...apps.map((app) => _buildUpiAppTile(app, upiParams)),
+            // App list
+            ...apps.map((app) => _buildAppTile(app)),
 
             const SizedBox(height: 20),
             const Divider(),
@@ -194,14 +269,30 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
                 ),
               ),
             ),
+
+            // ✅ Copy UPI ID option
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showCopyUpiDialog();
+                },
+                icon: const Icon(Icons.copy),
+                label: Text(
+                  "Copy UPI ID (Manual Payment)",
+                  style: GoogleFonts.poppins(),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  // ── Build UPI App Tile ──
-  Widget _buildUpiAppTile(Map<String, dynamic> app, String upiParams) {
+  Widget _buildAppTile(Map<String, dynamic> app) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -235,65 +326,79 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
           size: 16,
           color: Colors.grey.shade400,
         ),
-        onTap: () async {
-          Navigator.pop(context); // Close dialog
-          await _launchUpiApp(app, upiParams);
+        onTap: () {
+          Navigator.pop(context);
+          _openUpiAppFromWeb(
+            app['name'] as String,
+            app['package'] as String,
+            app['scheme'] as String,
+          );
         },
       ),
     );
   }
 
-  // ── Launch specific UPI app ──
-  Future<void> _launchUpiApp(
-    Map<String, dynamic> app,
-    String upiParams,
-  ) async {
-    final schemes = app['schemes'] as List<String>;
-    final appName = app['name'] as String;
-
-    // Try each URL scheme
-    for (final scheme in schemes) {
-      final upiUrl = '$scheme://upi/pay?$upiParams';
-      debugPrint("🚀 Trying: $upiUrl");
-
-      try {
-        final uri = Uri.parse(upiUrl);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-          debugPrint("✅ Launched: $appName via $scheme");
-          return;
-        }
-      } catch (e) {
-        debugPrint("❌ Failed to launch $scheme: $e");
-      }
-    }
-
-    // If all schemes failed, try Android intent
-    final packageName = app['package'] as String;
-    final intentUrl =
-        'intent://upi/pay?$upiParams#Intent;scheme=upi;package=$packageName;end';
-
-    try {
-      final uri = Uri.parse(intentUrl);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-        debugPrint("✅ Launched via intent: $appName");
-        return;
-      }
-    } catch (e) {
-      debugPrint("❌ Intent failed: $e");
-    }
-
-    // If everything failed
-    if (mounted) {
-      _showSnack(
-        "$appName is not installed or couldn't be opened",
-        isError: true,
-      );
-    }
+  void _showCopyUpiDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Manual Payment"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Copy UPI ID and pay manually:"),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SelectableText(
+                      widget.upiId,
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      // Copy to clipboard
+                      Clipboard.setData(ClipboardData(text: widget.upiId));
+                      _showSnack("✅ UPI ID copied!");
+                    },
+                    icon: const Icon(Icons.copy),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              "Amount: ₹${widget.totalAmount.toStringAsFixed(0)}",
+              style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              setState(() => _flowStep = 'returned');
+            },
+            child: const Text("I have paid"),
+          ),
+        ],
+      ),
+    );
   }
 
-  // ─── PICK IMAGE ───────────────────────────────────────────
+  // ─── PICK IMAGE ───
   Future<void> _pickImage() async {
     try {
       final XFile? picked = await _picker.pickImage(
@@ -304,20 +409,18 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
         setState(() => _selectedImage = File(picked.path));
       }
     } catch (e) {
-      _showSnack("Error selecting image: $e", isError: true);
+      _showSnack("Error: $e", isError: true);
     }
   }
 
-  // ─── UPLOAD PROOF ─────────────────────────────────────────
+  // ─── UPLOAD PROOF ───
   Future<void> _uploadProof() async {
-    // ✅ Validate transaction ID is required
     if (_txnIdController.text.trim().isEmpty) {
-      _showSnack("Please enter UPI Transaction ID", isError: true);
+      _showSnack("Enter UPI Transaction ID", isError: true);
       return;
     }
-
     if (_selectedImage == null) {
-      _showSnack("Please select the payment screenshot", isError: true);
+      _showSnack("Select payment screenshot", isError: true);
       return;
     }
 
@@ -336,7 +439,7 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
       if (result != null && result['success'] == true) {
         _showSuccessDialog();
       } else {
-        _showSnack("Upload failed. Please try again.", isError: true);
+        _showSnack("Upload failed", isError: true);
       }
     } catch (e) {
       setState(() => _isUploading = false);
@@ -344,76 +447,25 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
     }
   }
 
-  // ─── SUCCESS DIALOG ───────────────────────────────────────
   void _showSuccessDialog() {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => Dialog(
+      builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.hourglass_bottom_rounded,
-                  size: 56,
-                  color: Colors.orange.shade600,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                "Screenshot Uploaded!",
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.orange.shade700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                "Order #${widget.orderId}\n\nYour payment is under review.\nAdmin will verify and confirm your order soon.",
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  color: Colors.grey.shade700,
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context); // close dialog
-                    Navigator.pop(context); // back to previous screen
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange.shade600,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Text(
-                    "View My Orders",
-                    style: GoogleFonts.poppins(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+        title: const Text("Payment Submitted!"),
+        content: Text(
+          "Order #${widget.orderId}\n\nYour payment is under review.\nAdmin will verify soon.",
         ),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pop(context);
+            },
+            child: const Text("View Orders"),
+          ),
+        ],
       ),
     );
   }
@@ -423,12 +475,10 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
       SnackBar(
         content: Text(msg),
         backgroundColor: isError ? Colors.red : Colors.green,
-        duration: const Duration(seconds: 3),
       ),
     );
   }
 
-  // ─── BUILD ────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -440,39 +490,28 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
         ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
-        elevation: 0,
       ),
       body: _isUploading
-          ? _buildUploading()
+          ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildOrderCard(),
                   const SizedBox(height: 24),
-
-                  // ── Step 1: Always visible ──
                   _buildStep1(),
-
-                  // ── Step 2: Only after returning from UPI app ──
                   if (_flowStep == 'returned') ...[
-                    const SizedBox(height: 28),
-                    _buildReturnedBanner(),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                     _buildStep2(),
                   ],
-
                   const SizedBox(height: 24),
                   _buildInstructions(),
-                  const SizedBox(height: 32),
                 ],
               ),
             ),
     );
   }
 
-  // ── Order Info Card ──
   Widget _buildOrderCard() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -488,69 +527,35 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
         children: [
           Text(
             "Order Details",
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+            style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           _infoRow("Order ID", "#${widget.orderId}"),
-          _infoRow("Amount to Pay", "₹${widget.totalAmount.toStringAsFixed(0)}"),
+          _infoRow("Amount", "₹${widget.totalAmount.toStringAsFixed(0)}"),
           _infoRow("UPI ID", widget.upiId),
         ],
       ),
     );
   }
 
-  // ── Step 1: Pay via UPI ──
   Widget _buildStep1() {
-    final isDone = _flowStep == 'returned';
-
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDone ? Colors.green.shade300 : Colors.grey.shade200,
-          width: isDone ? 2 : 1,
-        ),
+        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              _stepBadge("1", done: isDone),
-              const SizedBox(width: 10),
-              Text(
-                "Pay via UPI",
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              if (isDone) ...[
-                const SizedBox(width: 8),
-                const Icon(Icons.check_circle, color: Colors.green, size: 20),
-              ],
-              if (_flowStep == 'upi_open') ...[
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.orange.shade600,
-                  ),
-                ),
-              ],
-            ],
+          Text(
+            "Step 1: Pay via UPI",
+            style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
 
           if (_flowStep == 'upi_open')
-            // Waiting banner
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -563,7 +568,7 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      "Complete payment in your UPI app and return here.",
+                      "Waiting for payment... Complete in UPI app and return here.",
                       style: GoogleFonts.poppins(
                         fontSize: 13,
                         color: Colors.orange.shade800,
@@ -578,24 +583,17 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
               width: double.infinity,
               height: 54,
               child: ElevatedButton.icon(
-                onPressed: _openUpiApp,
-                icon: const Icon(
-                  Icons.account_balance_wallet_rounded,
-                  size: 22,
-                ),
+                onPressed: _showUpiApps,
+                icon: const Icon(Icons.account_balance_wallet_rounded, size: 22),
                 label: Text(
-                  isDone
-                      ? "Pay Again"
-                      : "Pay ₹${widget.totalAmount.toStringAsFixed(0)} via UPI",
+                  "Pay ₹${widget.totalAmount.toStringAsFixed(0)} via UPI",
                   style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: isDone
-                      ? Colors.grey.shade400
-                      : const Color(0xFF5B3DF5),
+                  backgroundColor: const Color(0xFF5B3DF5),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -603,85 +601,13 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
                 ),
               ),
             ),
-
-          // ✅ "I have paid" button — only in upi_open state
-          if (_flowStep == 'upi_open') ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => setState(() => _flowStep = 'returned'),
-                icon: const Icon(
-                  Icons.check_circle_outline,
-                  color: Colors.green,
-                ),
-                label: Text(
-                  "I have paid — Upload Screenshot",
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.green.shade700,
-                  ),
-                ),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  side: BorderSide(color: Colors.green.shade400, width: 2),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
   }
 
-  // ── Green banner shown after returning from UPI ──
-  Widget _buildReturnedBanner() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.green.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.green.shade300),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.check_circle_outline, color: Colors.green.shade700),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Payment completed?",
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green.shade800,
-                  ),
-                ),
-                Text(
-                  "Enter transaction ID from your UPI app and upload screenshot below.",
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: Colors.green.shade700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Step 2: Transaction ID + Screenshot upload ──
   Widget _buildStep2() {
-    // ✅ Check if both fields are filled
-    final canSubmit = _txnIdController.text.trim().isNotEmpty &&
-        _selectedImage != null;
+    final canSubmit = _txnIdController.text.trim().isNotEmpty && _selectedImage != null;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -693,191 +619,78 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              _stepBadge("2"),
-              const SizedBox(width: 10),
-              Text(
-                "Upload Payment Proof",
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-
-          // ── 🔥 Transaction ID (MANDATORY) ──
           Text(
-            "UPI Transaction ID *",
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey.shade700,
-            ),
+            "Step 2: Upload Proof",
+            style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
+
           TextField(
             controller: _txnIdController,
             decoration: InputDecoration(
-              hintText: "e.g. 412345678901 (check UPI app history)",
-              hintStyle: GoogleFonts.poppins(fontSize: 12),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              filled: true,
-              fillColor: Colors.grey.shade50,
+              labelText: "UPI Transaction ID *",
+              hintText: "e.g. 412345678901",
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               prefixIcon: const Icon(Icons.receipt_long),
-              suffixIcon: _txnIdController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        _txnIdController.clear();
-                        setState(() {});
-                      },
-                    )
-                  : null,
             ),
-            keyboardType: TextInputType.number,
             onChanged: (_) => setState(() {}),
           ),
+          const SizedBox(height: 16),
 
-          const SizedBox(height: 20),
-
-          // ── Screenshot picker ──
-          Text(
-            "Payment Screenshot *",
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey.shade700,
-            ),
-          ),
-          const SizedBox(height: 8),
           GestureDetector(
             onTap: _pickImage,
             child: Container(
-              height: 200,
-              width: double.infinity,
+              height: 150,
               decoration: BoxDecoration(
                 color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: _selectedImage != null
-                      ? Colors.green
-                      : Colors.grey.shade300,
+                  color: _selectedImage != null ? Colors.green : Colors.grey.shade300,
                   width: 2,
                 ),
               ),
               child: _selectedImage != null
                   ? ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(10),
                       child: Image.file(_selectedImage!, fit: BoxFit.cover),
                     )
                   : Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          Icons.add_photo_alternate_rounded,
-                          size: 60,
-                          color: Colors.grey.shade400,
-                        ),
-                        const SizedBox(height: 10),
+                        Icon(Icons.add_photo_alternate, size: 50, color: Colors.grey.shade400),
+                        const SizedBox(height: 8),
                         Text(
-                          "Tap to choose screenshot",
-                          style: GoogleFonts.poppins(
-                            color: Colors.grey.shade500,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          "from your gallery",
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: Colors.grey.shade400,
-                          ),
+                          "Tap to upload screenshot",
+                          style: GoogleFonts.poppins(color: Colors.grey.shade500),
                         ),
                       ],
                     ),
             ),
           ),
+          const SizedBox(height: 20),
 
-          if (_selectedImage != null) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.green, size: 16),
-                const SizedBox(width: 6),
-                Text(
-                  "Screenshot selected",
-                  style: GoogleFonts.poppins(fontSize: 12, color: Colors.green),
-                ),
-                const Spacer(),
-                TextButton(
-                  onPressed: _pickImage,
-                  child: Text(
-                    "Change",
-                    style: GoogleFonts.poppins(fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
-          ],
-
-          const SizedBox(height: 24),
-
-          // ── 🔥 Submit button — enabled only when BOTH fields filled ──
           SizedBox(
             width: double.infinity,
             height: 54,
             child: ElevatedButton.icon(
               onPressed: canSubmit ? _uploadProof : null,
-              icon: const Icon(Icons.cloud_upload_rounded),
-              label: Text(
-                "Submit Screenshot",
-                style: GoogleFonts.poppins(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              icon: const Icon(Icons.cloud_upload),
+              label: const Text("Submit Screenshot"),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green.shade600,
                 foregroundColor: Colors.white,
                 disabledBackgroundColor: Colors.grey.shade300,
-                disabledForegroundColor: Colors.grey.shade500,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
             ),
           ),
-
-          // ✅ Helper text if disabled
-          if (!canSubmit) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.info_outline, size: 14, color: Colors.orange.shade600),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    "Please enter transaction ID and select screenshot to continue",
-                    style: GoogleFonts.poppins(
-                      fontSize: 11,
-                      color: Colors.orange.shade700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
         ],
       ),
     );
   }
 
-  // ── Instructions ──
   Widget _buildInstructions() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -903,14 +716,13 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
             ],
           ),
           const SizedBox(height: 12),
-          ...[
-            "1. Click 'Pay via UPI' button",
-            "2. Select your UPI app (GPay, PhonePe, etc.)",
-            "3. Complete payment in the UPI app",
-            "4. Take screenshot of success screen",
-            "5. Return to this app",
-            "6. Enter Transaction ID and upload screenshot",
-            "7. Admin will verify and confirm your order",
+          ...[ 
+            "1. Click 'Pay via UPI' button above",
+            "2. Select your UPI app (GPay/PhonePe/etc)",
+            "3. Complete payment in the app",
+            "4. Take screenshot of success message",
+            "5. Return here and click 'I have paid'",
+            "6. Upload transaction ID and screenshot",
           ].map(
             (text) => Padding(
               padding: const EdgeInsets.only(bottom: 6),
@@ -924,7 +736,6 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
                       style: GoogleFonts.poppins(
                         fontSize: 12,
                         color: Colors.blue.shade800,
-                        height: 1.5,
                       ),
                     ),
                   ),
@@ -937,73 +748,15 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
     );
   }
 
-  // ── Uploading indicator ──
-  Widget _buildUploading() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 20),
-          Text(
-            "Uploading screenshot...",
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text("Please wait", style: GoogleFonts.poppins(color: Colors.grey)),
-        ],
-      ),
-    );
-  }
-
-  // ── Helpers ──
   Widget _infoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              color: Colors.grey.shade600,
-              fontSize: 13,
-            ),
-          ),
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
-          ),
+          Text(label, style: GoogleFonts.poppins(color: Colors.grey.shade600, fontSize: 13)),
+          Text(value, style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13)),
         ],
-      ),
-    );
-  }
-
-  Widget _stepBadge(String number, {bool done = false}) {
-    return Container(
-      width: 28,
-      height: 28,
-      decoration: BoxDecoration(
-        color: done ? Colors.green : const Color(0xFF5B3DF5),
-        shape: BoxShape.circle,
-      ),
-      child: Center(
-        child: done
-            ? const Icon(Icons.check, color: Colors.white, size: 16)
-            : Text(
-                number,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
-              ),
       ),
     );
   }
