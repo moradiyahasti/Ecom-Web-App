@@ -2481,7 +2481,7 @@ class _AddressScreenState extends State<AddressScreen>
             orderId: orderId,
             userId: userId!,
             totalAmount: widget.total,
-            upiId: 'moradiyahasti-2@okhdfcbank', // 🔥 TARO UPI ID YAHAN LAKHO
+            upiId: 'sonalijivani-1@oksbi', // 🔥 TARO UPI ID YAHAN LAKHO
           ),
         ),
       );

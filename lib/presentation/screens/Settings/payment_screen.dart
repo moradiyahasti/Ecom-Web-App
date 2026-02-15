@@ -50,7 +50,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     _amountController.text = /* widget.totalAmount.toString() */ "1";
 
     // Set UPI address
-    _upiAddressController.text = "moradiyahasti-2@okhdfcbank";
+    _upiAddressController.text = "sonalijivani-1@oksbi";
 
     // Generate unique transaction reference
     _currentTransactionRef = DateTime.now().millisecondsSinceEpoch.toString();

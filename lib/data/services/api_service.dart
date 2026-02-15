@@ -962,7 +962,7 @@ class ApiService {
 
   Future<void> openUpiWeb() async {
     final upiUrl =
-        'upi://pay?pa=moradiyahasti-2@okhdfcbank&pn=Test%20Merchant&am=1&cu=INR';
+        'upi://pay?pa=sonalijivani-1@oksbi&pn=Test%20Merchant&am=1&cu=INR';
 
     final uri = Uri.parse(upiUrl);
 
