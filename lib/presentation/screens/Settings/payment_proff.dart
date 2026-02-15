@@ -67,18 +67,20 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
   }
 
   String _buildUpiUrl(String scheme) {
-    final params = 'pa=${Uri.encodeComponent(widget.upiId)}'
+    final params =
+        'pa=${Uri.encodeComponent(widget.upiId)}'
         '&pn=${Uri.encodeComponent("Shree Nails")}'
-        '&am=${widget.totalAmount.toInt()}'
+        '&am=${1.toInt()}'
         '&cu=INR'
         '&tn=${Uri.encodeComponent("Order #${widget.orderId}")}';
     return '$scheme://upi/pay?$params';
   }
 
   String _buildIntentUrl(String packageName, String scheme) {
-    final params = 'pa=${Uri.encodeComponent(widget.upiId)}'
+    final params =
+        'pa=${Uri.encodeComponent(widget.upiId)}'
         '&pn=${Uri.encodeComponent("Shree Nails")}'
-        '&am=${widget.totalAmount.toInt()}'
+        '&am=${1.toInt()}'
         '&cu=INR'
         '&tn=${Uri.encodeComponent("Order #${widget.orderId}")}';
     return 'intent://upi/pay?$params#Intent;scheme=$scheme;package=$packageName;end';
@@ -103,9 +105,9 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
         try {
           final directUrl = _buildUpiUrl(scheme);
           final uri = Uri.parse(directUrl);
-          
+
           debugPrint("📱 Method 1: Trying direct URL: $directUrl");
-          
+
           if (await canLaunchUrl(uri)) {
             await launchUrl(uri, mode: LaunchMode.externalApplication);
             launched = true;
@@ -121,9 +123,9 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
         try {
           final intentUrl = _buildIntentUrl(packageName, scheme);
           final uri = Uri.parse(intentUrl);
-          
+
           debugPrint("📱 Method 2: Trying intent URL");
-          
+
           if (await canLaunchUrl(uri)) {
             await launchUrl(
               uri,
@@ -143,7 +145,7 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
         try {
           final intentUrl = _buildIntentUrl(packageName, scheme);
           debugPrint("📱 Method 3: Using window.location.href");
-          
+
           html.window.location.href = intentUrl;
           launched = true;
           debugPrint("✅ Method 3 executed");
@@ -158,11 +160,10 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
           _showFallbackDialog(appName);
         }
       });
-
     } else {
       // ✅ MOBILE APP: Standard launch
       final upiUrl = _buildUpiUrl(scheme);
-      
+
       try {
         final uri = Uri.parse(upiUrl);
         if (await canLaunchUrl(uri)) {
@@ -339,7 +340,7 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
             ),
             const SizedBox(height: 4),
             Text(
-              "Pay ₹${widget.totalAmount.toStringAsFixed(0)} to ${widget.upiId}",
+              "Pay ₹${1.toStringAsFixed(0)} to ${widget.upiId}",
               style: GoogleFonts.poppins(
                 fontSize: 13,
                 color: Colors.grey.shade600,
@@ -357,7 +358,10 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
                   Navigator.pop(context);
                   setState(() => _flowStep = 'returned');
                 },
-                icon: Icon(Icons.check_circle_outline, color: Colors.green.shade600),
+                icon: Icon(
+                  Icons.check_circle_outline,
+                  color: Colors.green.shade600,
+                ),
                 label: Text(
                   "I have completed payment",
                   style: GoogleFonts.poppins(
@@ -368,7 +372,9 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   side: BorderSide(color: Colors.green.shade400, width: 2),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
               ),
             ),
@@ -381,7 +387,10 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
                   _showCopyUpiDialog();
                 },
                 icon: const Icon(Icons.copy),
-                label: Text("Copy UPI ID (Manual Payment)", style: GoogleFonts.poppins()),
+                label: Text(
+                  "Copy UPI ID (Manual Payment)",
+                  style: GoogleFonts.poppins(),
+                ),
               ),
             ),
           ],
@@ -406,13 +415,21 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
             color: (app['color'] as Color).withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(app['icon'] as IconData, color: app['color'] as Color, size: 28),
+          child: Icon(
+            app['icon'] as IconData,
+            color: app['color'] as Color,
+            size: 28,
+          ),
         ),
         title: Text(
           app['name'] as String,
           style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 15),
         ),
-        trailing: Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey.shade400),
+        trailing: Icon(
+          Icons.arrow_forward_ios,
+          size: 16,
+          color: Colors.grey.shade400,
+        ),
         onTap: () {
           Navigator.pop(context);
           _openUpiApp(
@@ -453,11 +470,20 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("UPI ID:", style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey.shade600)),
+                        Text(
+                          "UPI ID:",
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
                         const SizedBox(height: 4),
                         SelectableText(
                           widget.upiId,
-                          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14),
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
                       ],
                     ),
@@ -479,7 +505,7 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
             ),
             const SizedBox(height: 12),
             Text(
-              "Amount: ₹${widget.totalAmount.toStringAsFixed(0)}",
+              "Amount: ₹${1.toStringAsFixed(0)}",
               style: GoogleFonts.poppins(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -489,13 +515,18 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               setState(() => _flowStep = 'returned');
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade600),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green.shade600,
+            ),
             child: const Text("I have paid"),
           ),
         ],
@@ -505,7 +536,10 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
 
   Future<void> _pickImage() async {
     try {
-      final XFile? picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+      final XFile? picked = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+      );
       if (picked != null) {
         setState(() => _selectedImage = File(picked.path));
       }
@@ -560,8 +594,15 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
             children: [
               Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(color: Colors.orange.shade50, shape: BoxShape.circle),
-                child: Icon(Icons.hourglass_bottom_rounded, size: 56, color: Colors.orange.shade600),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.hourglass_bottom_rounded,
+                  size: 56,
+                  color: Colors.orange.shade600,
+                ),
               ),
               const SizedBox(height: 16),
               Text(
@@ -576,7 +617,10 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
               Text(
                 "Order #${widget.orderId}\n\nAdmin will verify your payment soon.",
                 textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey.shade700),
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  color: Colors.grey.shade700,
+                ),
               ),
               const SizedBox(height: 24),
               SizedBox(
@@ -589,7 +633,9 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange.shade600,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   child: Text(
                     "View My Orders",
@@ -623,7 +669,10 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: Text("Complete Payment", style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        title: Text(
+          "Complete Payment",
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 0,
@@ -657,15 +706,23 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8)],
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Order Details", style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text(
+            "Order Details",
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 16),
           _infoRow("Order ID", "#${widget.orderId}"),
-          _infoRow("Amount", "₹${widget.totalAmount.toStringAsFixed(0)}"),
+          _infoRow("Amount", "₹${1.toStringAsFixed(0)}"),
           _infoRow("UPI ID", widget.upiId),
         ],
       ),
@@ -691,7 +748,13 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
             children: [
               _stepBadge("1", done: isDone),
               const SizedBox(width: 10),
-              Text("Pay via UPI", style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(
+                "Pay via UPI",
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               if (isDone) ...[
                 const SizedBox(width: 8),
                 const Icon(Icons.check_circle, color: Colors.green, size: 20),
@@ -701,7 +764,10 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
                 SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange.shade600),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.orange.shade600,
+                  ),
                 ),
               ],
             ],
@@ -710,7 +776,10 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
           if (_flowStep == 'upi_open')
             Container(
               padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Row(
                 children: [
                   Icon(Icons.pending_outlined, color: Colors.orange.shade700),
@@ -718,7 +787,10 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
                   Expanded(
                     child: Text(
                       "Waiting... Complete payment in UPI app.",
-                      style: GoogleFonts.poppins(fontSize: 13, color: Colors.orange.shade800),
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: Colors.orange.shade800,
+                      ),
                     ),
                   ),
                 ],
@@ -730,15 +802,27 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
               height: 54,
               child: ElevatedButton.icon(
                 onPressed: _showUpiApps,
-                icon: const Icon(Icons.account_balance_wallet_rounded, size: 22),
+                icon: const Icon(
+                  Icons.account_balance_wallet_rounded,
+                  size: 22,
+                ),
                 label: Text(
-                  isDone ? "Pay Again" : "Pay ₹${widget.totalAmount.toStringAsFixed(0)} via UPI",
-                  style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold),
+                  isDone
+                      ? "Pay Again"
+                      : "Pay ₹${1.toStringAsFixed(0)} via UPI",
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: isDone ? Colors.grey.shade400 : const Color(0xFF5B3DF5),
+                  backgroundColor: isDone
+                      ? Colors.grey.shade400
+                      : const Color(0xFF5B3DF5),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
               ),
             ),
@@ -748,15 +832,24 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: () => setState(() => _flowStep = 'returned'),
-                icon: const Icon(Icons.check_circle_outline, color: Colors.green),
+                icon: const Icon(
+                  Icons.check_circle_outline,
+                  color: Colors.green,
+                ),
                 label: Text(
                   "I have paid",
-                  style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.green.shade700),
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.green.shade700,
+                  ),
                 ),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   side: BorderSide(color: Colors.green.shade400, width: 2),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
               ),
             ),
@@ -782,8 +875,20 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Payment completed?", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.green.shade800)),
-                Text("Enter transaction ID and upload screenshot.", style: GoogleFonts.poppins(fontSize: 12, color: Colors.green.shade700)),
+                Text(
+                  "Payment completed?",
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green.shade800,
+                  ),
+                ),
+                Text(
+                  "Enter transaction ID and upload screenshot.",
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.green.shade700,
+                  ),
+                ),
               ],
             ),
           ),
@@ -793,7 +898,8 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
   }
 
   Widget _buildStep2() {
-    final canSubmit = _txnIdController.text.trim().isNotEmpty && _selectedImage != null;
+    final canSubmit =
+        _txnIdController.text.trim().isNotEmpty && _selectedImage != null;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -808,17 +914,32 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
             children: [
               _stepBadge("2"),
               const SizedBox(width: 10),
-              Text("Upload Payment Proof", style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(
+                "Upload Payment Proof",
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 20),
-          Text("UPI Transaction ID *", style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.grey.shade700)),
+          Text(
+            "UPI Transaction ID *",
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade700,
+            ),
+          ),
           const SizedBox(height: 8),
           TextField(
             controller: _txnIdController,
             decoration: InputDecoration(
               hintText: "e.g. 412345678901",
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               filled: true,
               fillColor: Colors.grey.shade50,
               prefixIcon: const Icon(Icons.receipt_long),
@@ -827,7 +948,14 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 20),
-          Text("Screenshot *", style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.grey.shade700)),
+          Text(
+            "Screenshot *",
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade700,
+            ),
+          ),
           const SizedBox(height: 8),
           GestureDetector(
             onTap: _pickImage,
@@ -836,16 +964,33 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
               decoration: BoxDecoration(
                 color: Colors.grey.shade50,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _selectedImage != null ? Colors.green : Colors.grey.shade300, width: 2),
+                border: Border.all(
+                  color: _selectedImage != null
+                      ? Colors.green
+                      : Colors.grey.shade300,
+                  width: 2,
+                ),
               ),
               child: _selectedImage != null
-                  ? ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.file(_selectedImage!, fit: BoxFit.cover))
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: Image.file(_selectedImage!, fit: BoxFit.cover),
+                    )
                   : Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.add_photo_alternate_rounded, size: 60, color: Colors.grey.shade400),
+                        Icon(
+                          Icons.add_photo_alternate_rounded,
+                          size: 60,
+                          color: Colors.grey.shade400,
+                        ),
                         const SizedBox(height: 10),
-                        Text("Tap to upload", style: GoogleFonts.poppins(color: Colors.grey.shade500)),
+                        Text(
+                          "Tap to upload",
+                          style: GoogleFonts.poppins(
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
                       ],
                     ),
             ),
@@ -857,12 +1002,20 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
             child: ElevatedButton.icon(
               onPressed: canSubmit ? _uploadProof : null,
               icon: const Icon(Icons.cloud_upload_rounded),
-              label: Text("Submit", style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold)),
+              label: Text(
+                "Submit",
+                style: GoogleFonts.poppins(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green.shade600,
                 foregroundColor: Colors.white,
                 disabledBackgroundColor: Colors.grey.shade300,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
             ),
           ),
@@ -886,7 +1039,13 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
             children: [
               Icon(Icons.info_outline, color: Colors.blue.shade700, size: 18),
               const SizedBox(width: 8),
-              Text("How it works", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.blue.shade700)),
+              Text(
+                "How it works",
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue.shade700,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -902,7 +1061,15 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
               child: Row(
                 children: [
                   Text("• ", style: TextStyle(color: Colors.blue.shade700)),
-                  Expanded(child: Text(text, style: GoogleFonts.poppins(fontSize: 12, color: Colors.blue.shade800))),
+                  Expanded(
+                    child: Text(
+                      text,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.blue.shade800,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -918,8 +1085,20 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: GoogleFonts.poppins(color: Colors.grey.shade600, fontSize: 13)),
-          Text(value, style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13)),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              color: Colors.grey.shade600,
+              fontSize: 13,
+            ),
+          ),
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+          ),
         ],
       ),
     );
@@ -936,7 +1115,14 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
       child: Center(
         child: done
             ? const Icon(Icons.check, color: Colors.white, size: 16)
-            : Text(number, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+            : Text(
+                number,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
       ),
     );
   }
