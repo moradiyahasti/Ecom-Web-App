@@ -807,9 +807,7 @@ class _PaymentProofScreenState extends State<PaymentProofScreen>
                   size: 22,
                 ),
                 label: Text(
-                  isDone
-                      ? "Pay Again"
-                      : "Pay ₹${1.toStringAsFixed(0)} via UPI",
+                  isDone ? "Pay Again" : "Pay ₹${1.toStringAsFixed(0)} via UPI",
                   style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
