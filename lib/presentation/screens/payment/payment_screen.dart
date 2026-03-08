@@ -15,7 +15,7 @@ class PaymentScreen extends StatefulWidget {
     Key? key,
     this.productName = "Premium Nail Art Kit",
     this.quantity = 1,
-    this.price = 999.0,
+    this.price = 100.0,
     this.deliveryCharge = 50.0,
   }) : super(key: key);
 
@@ -23,7 +23,8 @@ class PaymentScreen extends StatefulWidget {
   State<PaymentScreen> createState() => _PaymentScreenState();
 }
 
-class _PaymentScreenState extends State<PaymentScreen> with SingleTickerProviderStateMixin {
+class _PaymentScreenState extends State<PaymentScreen>
+    with SingleTickerProviderStateMixin {
   late double subtotal;
   late double totalAmount;
 
@@ -40,10 +41,13 @@ class _PaymentScreenState extends State<PaymentScreen> with SingleTickerProvider
     totalAmount = subtotal + widget.deliveryCharge;
 
     _animController = AnimationController(
-       vsync: this,
-       duration: const Duration(milliseconds: 600),
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
     );
-    _fadeAnimation = CurvedAnimation(parent: _animController, curve: Curves.easeIn);
+    _fadeAnimation = CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeIn,
+    );
     _animController.forward();
   }
 
@@ -71,7 +75,7 @@ class _PaymentScreenState extends State<PaymentScreen> with SingleTickerProvider
         await launchUrl(upiUri, mode: LaunchMode.externalApplication);
         // Simulate waiting for payment gateway return
         await Future.delayed(const Duration(seconds: 3));
-        _handlePaymentResult(isSuccess: true); 
+        _handlePaymentResult(isSuccess: true);
       } else {
         // For Web or Devices without UPI, simulate success/failure randomly after delay
         _showSimulatingPaymentDialog(app);
@@ -101,7 +105,8 @@ class _PaymentScreenState extends State<PaymentScreen> with SingleTickerProvider
     Future.delayed(const Duration(seconds: 3), () {
       if (!mounted) return;
       Navigator.pop(context); // Close loading dialog
-      final bool isSuccess = Random().nextBool(); // Randomly succeed or fail for demo
+      final bool isSuccess = Random()
+          .nextBool(); // Randomly succeed or fail for demo
       _handlePaymentResult(isSuccess: isSuccess);
     });
   }
@@ -116,32 +121,47 @@ class _PaymentScreenState extends State<PaymentScreen> with SingleTickerProvider
 
   void _showSuccessDialog() {
     final transactionId = "TXN${Random().nextInt(100000000)}";
-    
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.check_circle_outline, color: Colors.green, size: 64),
+                const Icon(
+                  Icons.check_circle_outline,
+                  color: Colors.green,
+                  size: 64,
+                ),
                 const SizedBox(height: 16),
                 Text(
                   "Payment Successful",
-                  style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold),
+                  style: GoogleFonts.poppins(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   "Transaction ID: $transactionId",
-                  style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey.shade600),
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                  ),
                 ),
                 Text(
                   "Amount Paid: ₹${totalAmount.toStringAsFixed(2)}",
-                  style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey.shade600),
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                  ),
                 ),
                 const SizedBox(height: 24),
                 SizedBox(
@@ -149,7 +169,9 @@ class _PaymentScreenState extends State<PaymentScreen> with SingleTickerProvider
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.deepPurple,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     onPressed: () {
@@ -172,7 +194,10 @@ class _PaymentScreenState extends State<PaymentScreen> with SingleTickerProvider
                     },
                     child: Text(
                       "View Order Details",
-                      style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600),
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -189,7 +214,9 @@ class _PaymentScreenState extends State<PaymentScreen> with SingleTickerProvider
       context: context,
       builder: (context) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(24.0),
             child: Column(
@@ -199,12 +226,18 @@ class _PaymentScreenState extends State<PaymentScreen> with SingleTickerProvider
                 const SizedBox(height: 16),
                 Text(
                   "Payment Failed",
-                  style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold),
+                  style: GoogleFonts.poppins(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   "Payment was not completed.",
-                  style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey.shade600),
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
@@ -214,7 +247,9 @@ class _PaymentScreenState extends State<PaymentScreen> with SingleTickerProvider
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.deepPurple,
                       side: const BorderSide(color: Colors.deepPurple),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     onPressed: () {
@@ -241,7 +276,11 @@ class _PaymentScreenState extends State<PaymentScreen> with SingleTickerProvider
       appBar: AppBar(
         title: Text(
           "Payment",
-          style: GoogleFonts.poppins(color: Colors.black87, fontWeight: FontWeight.w600, fontSize: 18),
+          style: GoogleFonts.poppins(
+            color: Colors.black87,
+            fontWeight: FontWeight.w600,
+            fontSize: 18,
+          ),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
@@ -285,14 +324,21 @@ class _PaymentScreenState extends State<PaymentScreen> with SingleTickerProvider
         children: [
           Text(
             "Order Summary",
-            style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 16),
           _buildSummaryRow(widget.productName, "x${widget.quantity}"),
           const SizedBox(height: 12),
           _buildSummaryRow("Price", "₹${subtotal.toStringAsFixed(2)}"),
           const SizedBox(height: 12),
-          _buildSummaryRow("Delivery Charge", "₹${widget.deliveryCharge.toStringAsFixed(2)}", isSubtext: true),
+          _buildSummaryRow(
+            "Delivery Charge",
+            "₹${widget.deliveryCharge.toStringAsFixed(2)}",
+            isSubtext: true,
+          ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Divider(),
@@ -302,11 +348,18 @@ class _PaymentScreenState extends State<PaymentScreen> with SingleTickerProvider
             children: [
               Text(
                 "Total Amount",
-                style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               Text(
                 "₹${totalAmount.toStringAsFixed(2)}",
-                style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.deepPurple),
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.deepPurple,
+                ),
               ),
             ],
           ),
@@ -315,12 +368,16 @@ class _PaymentScreenState extends State<PaymentScreen> with SingleTickerProvider
     );
   }
 
-  Widget _buildSummaryRow(String title, String value, {bool isSubtext = false}) {
+  Widget _buildSummaryRow(
+    String title,
+    String value, {
+    bool isSubtext = false,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Expanded(
-           child: Text(
+          child: Text(
             title,
             style: GoogleFonts.poppins(
               fontSize: 14,
@@ -350,7 +407,10 @@ class _PaymentScreenState extends State<PaymentScreen> with SingleTickerProvider
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           child: Text(
             "Pay using UPI",
-            style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
         const SizedBox(height: 8),
@@ -363,7 +423,11 @@ class _PaymentScreenState extends State<PaymentScreen> with SingleTickerProvider
           crossAxisSpacing: 12,
           children: [
             _buildUPIAppCard("GPay", "assets/gpay_icon.png", Colors.white),
-            _buildUPIAppCard("PhonePe", "assets/phonepe_icon.png", Colors.white),
+            _buildUPIAppCard(
+              "PhonePe",
+              "assets/phonepe_icon.png",
+              Colors.white,
+            ),
             _buildUPIAppCard("Paytm", "assets/paytm_icon.png", Colors.white),
             _buildUPIAppCard("BHIM", "assets/bhim_icon.png", Colors.white),
           ],
@@ -397,12 +461,18 @@ class _PaymentScreenState extends State<PaymentScreen> with SingleTickerProvider
                   color: Colors.grey.shade100,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.account_balance_wallet, color: Colors.deepPurple), // Placeholder for actual icon image
+                child: const Icon(
+                  Icons.account_balance_wallet,
+                  color: Colors.deepPurple,
+                ), // Placeholder for actual icon image
               ),
               const SizedBox(height: 10),
               Text(
                 name,
-                style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500),
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
           ),
