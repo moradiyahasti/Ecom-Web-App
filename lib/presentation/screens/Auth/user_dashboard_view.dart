@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:demo/data/services/api_service.dart';
 import 'package:demo/data/services/token_service.dart';
-import 'package:demo/presentation/screens/Settings/payment_screen.dart';
 import 'package:demo/presentation/screens/payment/payment_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
