@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:demo/data/services/api_service.dart';
 import 'package:demo/data/services/token_service.dart';
-import 'package:demo/presentation/screens/Settings/payment_screen.dart';
+import 'package:demo/presentation/screens/payment/payment_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
@@ -69,12 +69,10 @@ class _EnhancedUserDashboardState extends State<EnhancedUserDashboard>
       CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
-    );
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+          CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
+        );
 
     _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
       CurvedAnimation(parent: _scaleController, curve: Curves.easeOutBack),
@@ -119,11 +117,7 @@ class _EnhancedUserDashboardState extends State<EnhancedUserDashboard>
         return;
       }
 
-      await Future.wait([
-        _loadOrderStats(),
-        _loadOrders(),
-        _loadAddresses(),
-      ]);
+      await Future.wait([_loadOrderStats(), _loadOrders(), _loadAddresses()]);
 
       log('✅ All data loaded successfully');
     } catch (e, stackTrace) {
@@ -165,7 +159,9 @@ class _EnhancedUserDashboardState extends State<EnhancedUserDashboard>
             totalSpent = (data['stats']['totalSpent'] ?? 0).toDouble();
           });
 
-          log('✅ Order stats loaded: Total=$totalOrders, Pending=$pendingOrders');
+          log(
+            '✅ Order stats loaded: Total=$totalOrders, Pending=$pendingOrders',
+          );
         }
       } else {
         log('❌ Stats request failed with status ${response.statusCode}');
@@ -199,13 +195,17 @@ class _EnhancedUserDashboardState extends State<EnhancedUserDashboard>
             allOrders = List<Map<String, dynamic>>.from(data['orders']);
 
             pendingPaymentOrders = allOrders
-                .where((order) =>
-                    order['payment_status'] == 'pending' &&
-                    order['order_status'] != 'CANCELLED')
+                .where(
+                  (order) =>
+                      order['payment_status'] == 'pending' &&
+                      order['order_status'] != 'CANCELLED',
+                )
                 .toList();
           });
 
-          log('✅ Orders loaded: ${allOrders.length} total, ${pendingPaymentOrders.length} pending payment');
+          log(
+            '✅ Orders loaded: ${allOrders.length} total, ${pendingPaymentOrders.length} pending payment',
+          );
 
           if (allOrders.isNotEmpty) {
             log('📝 First order: ${allOrders[0]}');
@@ -261,39 +261,39 @@ class _EnhancedUserDashboardState extends State<EnhancedUserDashboard>
       body: _isLoading
           ? _buildLoadingState()
           : _errorMessage != null
-              ? _buildErrorState()
-              : RefreshIndicator(
-                  onRefresh: _loadUserData,
-                  color: const Color(0xFF6C63FF),
-                  child: CustomScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    slivers: [
-                      _buildModernAppBar(),
-                      SliverToBoxAdapter(
-                        child: FadeTransition(
-                          opacity: _fadeAnimation,
-                          child: SlideTransition(
-                            position: _slideAnimation,
-                            child: Column(
-                              children: [
-                                _buildProfileHeader(),
-                                const SizedBox(height: 20),
-                                _buildQuickStats(),
-                                const SizedBox(height: 24),
-                                _buildPendingPaymentsSection(),
-                                const SizedBox(height: 24),
-                                _buildOrdersSection(),
-                                const SizedBox(height: 24),
-                                _buildAddressesSection(),
-                                const SizedBox(height: 100),
-                              ],
-                            ),
-                          ),
+          ? _buildErrorState()
+          : RefreshIndicator(
+              onRefresh: _loadUserData,
+              color: const Color(0xFF6C63FF),
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  _buildModernAppBar(),
+                  SliverToBoxAdapter(
+                    child: FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: SlideTransition(
+                        position: _slideAnimation,
+                        child: Column(
+                          children: [
+                            _buildProfileHeader(),
+                            const SizedBox(height: 20),
+                            _buildQuickStats(),
+                            const SizedBox(height: 24),
+                            _buildPendingPaymentsSection(),
+                            const SizedBox(height: 24),
+                            _buildOrdersSection(),
+                            const SizedBox(height: 24),
+                            _buildAddressesSection(),
+                            const SizedBox(height: 100),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
+              ),
+            ),
     );
   }
 
@@ -310,10 +310,7 @@ class _EnhancedUserDashboardState extends State<EnhancedUserDashboard>
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              const Color(0xFF6C63FF),
-              const Color(0xFF5A52D5),
-            ],
+            colors: [const Color(0xFF6C63FF), const Color(0xFF5A52D5)],
           ),
         ),
       ),
@@ -329,10 +326,7 @@ class _EnhancedUserDashboardState extends State<EnhancedUserDashboard>
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF6C63FF),
-            const Color(0xFF5A52D5),
-          ],
+          colors: [const Color(0xFF6C63FF), const Color(0xFF5A52D5)],
         ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
@@ -625,10 +619,7 @@ class _EnhancedUserDashboardState extends State<EnhancedUserDashboard>
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFFFF9800),
-                      const Color(0xFFF57C00),
-                    ],
+                    colors: [const Color(0xFFFF9800), const Color(0xFFF57C00)],
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -649,7 +640,10 @@ class _EnhancedUserDashboardState extends State<EnhancedUserDashboard>
               ),
               const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFF9800),
                   borderRadius: BorderRadius.circular(20),
@@ -666,7 +660,9 @@ class _EnhancedUserDashboardState extends State<EnhancedUserDashboard>
             ],
           ),
           const SizedBox(height: 16),
-          ...pendingPaymentOrders.map((order) => _buildPendingPaymentCard(order)),
+          ...pendingPaymentOrders.map(
+            (order) => _buildPendingPaymentCard(order),
+          ),
         ],
       ),
     );
@@ -697,13 +693,13 @@ class _EnhancedUserDashboardState extends State<EnhancedUserDashboard>
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFFFF9800),
-                      const Color(0xFFF57C00),
-                    ],
+                    colors: [const Color(0xFFFF9800), const Color(0xFFF57C00)],
                   ),
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -838,10 +834,7 @@ class _EnhancedUserDashboardState extends State<EnhancedUserDashboard>
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFF6C63FF),
-                      const Color(0xFF5A52D5),
-                    ],
+                    colors: [const Color(0xFF6C63FF), const Color(0xFF5A52D5)],
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -931,7 +924,10 @@ class _EnhancedUserDashboardState extends State<EnhancedUserDashboard>
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: statusBgColor,
                   borderRadius: BorderRadius.circular(8),
@@ -1049,10 +1045,7 @@ class _EnhancedUserDashboardState extends State<EnhancedUserDashboard>
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFF4CAF50),
-                      const Color(0xFF388E3C),
-                    ],
+                    colors: [const Color(0xFF4CAF50), const Color(0xFF388E3C)],
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1073,7 +1066,10 @@ class _EnhancedUserDashboardState extends State<EnhancedUserDashboard>
               ),
               const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF4CAF50),
                   borderRadius: BorderRadius.circular(20),
@@ -1222,11 +1218,7 @@ class _EnhancedUserDashboardState extends State<EnhancedUserDashboard>
               color: const Color(0xFFF5F7FA),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              icon,
-              size: 50,
-              color: Colors.grey.shade400,
-            ),
+            child: Icon(icon, size: 50, color: Colors.grey.shade400),
           ),
           const SizedBox(height: 20),
           Text(
@@ -1337,10 +1329,7 @@ class _EnhancedUserDashboardState extends State<EnhancedUserDashboard>
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  const Color(0xFF6C63FF),
-                  const Color(0xFF5A52D5),
-                ],
+                colors: [const Color(0xFF6C63FF), const Color(0xFF5A52D5)],
               ),
               shape: BoxShape.circle,
             ),
@@ -1389,7 +1378,7 @@ class _EnhancedUserDashboardState extends State<EnhancedUserDashboard>
         'Sep',
         'Oct',
         'Nov',
-        'Dec'
+        'Dec',
       ];
       return '${date.day} ${months[date.month - 1]} ${date.year}';
     } catch (e) {
@@ -1403,14 +1392,14 @@ class _EnhancedUserDashboardState extends State<EnhancedUserDashboard>
       context,
       MaterialPageRoute(
         builder: (_) => PaymentScreen(
-          totalAmount: double.parse(order['total_amount'].toString()),
-          orderDetails: {
-            'order_id': order['order_id'],
-            'user_id': userId,
-            'address_id': order['address_id'],
-            'total': double.parse(order['total_amount'].toString()),
-          }, 
-          // : order['order_id'],
+          // totalAmount: double.parse(order['total_amount'].toString()),
+          // orderDetails: {
+          //   'order_id': order['order_id'],
+          //   'user_id': userId,
+          //   'address_id': order['address_id'],
+          //   'total': double.parse(order['total_amount'].toString()),
+          // },
+          // // : order['order_id'],
         ),
       ),
     ).then((_) {

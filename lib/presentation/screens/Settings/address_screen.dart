@@ -3,9 +3,9 @@ import 'dart:developer';
 import 'package:demo/data/models/get_cart_item_model.dart';
 import 'package:demo/data/providers/auth_provider.dart';
 import 'package:demo/data/providers/cart_provider.dart';
-import 'package:demo/presentation/screens/Settings/payment_screen.dart';
 import 'package:demo/data/services/api_service.dart';
 import 'package:demo/data/services/token_service.dart';
+import 'package:demo/presentation/screens/payment/payment_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
@@ -1166,15 +1166,14 @@ class _AddressScreenState extends State<AddressScreen>
 
       log("📦 CREATED ORDER ID: $orderId");
 
+      if (!mounted) return;
       setState(() => _isLoading = false);
 
       _showSuccessSnackbar('Address confirmed successfully');
 
       // 🔥 START PAYMENT FLOW
-      if (mounted) {
-        await context.read<CartProvider>().startPaymentFlow();
-        log("🔒 Payment flow started - cart reloads now BLOCKED");
-      }
+      await context.read<CartProvider>().startPaymentFlow();
+      log("🔒 Payment flow started - cart reloads now BLOCKED");
 
       await Future.delayed(const Duration(milliseconds: 500));
 
@@ -1186,7 +1185,7 @@ class _AddressScreenState extends State<AddressScreen>
         PageRouteBuilder(
           pageBuilder: (context, animation, secondaryAnimation) =>
               PaymentScreen(
-                totalAmount: widget.total,
+                /* totalAmount: widget.total,
                 orderDetails: {
                   "order_id": orderId,
                   "user_id": userId,
@@ -1206,6 +1205,7 @@ class _AddressScreenState extends State<AddressScreen>
                       )
                       .toList(),
                 },
+               */
                 // orderId: orderId.toString(),
               ),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -1251,19 +1251,20 @@ class _AddressScreenState extends State<AddressScreen>
       }
     } catch (e) {
       log("❌ ERROR: $e");
+
+      if (!mounted) return;
       setState(() => _isLoading = false);
 
       // 🔥 END PAYMENT FLOW on error
-      if (mounted) {
-        final cartProvider = context.read<CartProvider>();
-        final paymentInProgress = await cartProvider.isPaymentInProgress;
+      final cartProvider = context.read<CartProvider>();
+      final paymentInProgress = await cartProvider.isPaymentInProgress;
 
-        if (paymentInProgress) {
-          await cartProvider.endPaymentFlow();
-          log("🔓 Payment flow ended - error occurred");
-        }
+      if (paymentInProgress) {
+        await cartProvider.endPaymentFlow();
+        log("🔓 Payment flow ended - error occurred");
       }
 
+      if (!mounted) return;
       _showErrorSnackbar('Failed: ${e.toString()}');
     }
   }
