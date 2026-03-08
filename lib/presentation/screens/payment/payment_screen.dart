@@ -27,7 +27,7 @@ class _PaymentScreenState extends State<PaymentScreen> with SingleTickerProvider
   late double subtotal;
   late double totalAmount;
 
-  final String upiId = "merchant@upi";
+  final String upiId = "moradiyahasti-2@okhdfcbank";
   final String merchantName = "Shree Nails";
 
   late AnimationController _animController;
