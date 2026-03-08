@@ -234,6 +234,7 @@ class _EditProfileScreenState extends State<EditProfileScreen>
       child: TextField(
         controller: controller,
         maxLines: maxLines,
+        readOnly: true,
         style: GoogleFonts.poppins(fontSize: 15),
         decoration: InputDecoration(
           labelText: label,
@@ -399,9 +400,7 @@ class _EditProfileScreenState extends State<EditProfileScreen>
             ),
           ],
         ),
-        backgroundColor: isSuccess
-            ? Colors.deepPurple
-            : Colors.red.shade600,
+        backgroundColor: isSuccess ? Colors.deepPurple : Colors.red.shade600,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),

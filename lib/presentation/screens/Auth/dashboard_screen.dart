@@ -70,7 +70,22 @@ class _MainLayoutState extends State<MainLayout> {
     ];
     loadUser();
 
-    // Load cart if cart tab is open
+    // Load user data for logged-in users
+    Future.microtask(() {
+      if (mounted) {
+        final authProvider = context.read<AuthProvider>();
+
+        if (authProvider.isLoggedIn && authProvider.userId != null) {
+          final userId = authProvider.userId!;
+          
+          // Load cart and favorites for logged-in user
+          context.read<CartProvider>().loadCart(userId);
+          context.read<FavoritesProvider>().loadFavorites(userId);
+        }
+      }
+    });
+
+    // Load cart if cart tab is open (additional load for safety)
     if (selectedIndex == 1) {
       Future.microtask(() {
         if (mounted) {
@@ -420,6 +435,16 @@ class _MainLayoutState extends State<MainLayout> {
 
 void _changePage(int index) async {
   if (index < 0 || index >= pages.length) return;
+
+  // 🔥 Check login for cart and favorites tabs
+  if (index == 1 || index == 2) { // Cart or Favorites
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.userId == null) {
+      // Guest user trying to access cart/favorites - show login prompt
+      showLoginRequiredDialog(context, action: "access your cart and favorites");
+      return; // Don't change page
+    }
+  }
 
   setState(() => selectedIndex = index);
 
@@ -901,4 +926,5 @@ void _changePage(int index) async {
       ),
     );
   }
+
 }

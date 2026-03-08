@@ -4,7 +4,9 @@ import 'package:demo/data/providers/cart_provider.dart';
 import 'package:demo/data/services/provider.dart';
 import 'package:demo/presentation/screens/product/product_details_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:demo/widget/all_widget.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import 'package:provider/provider.dart';
 // ... other imports ...
 
@@ -82,11 +84,7 @@ class _ProductCardState extends State<ProductCard>
                         }
                       } else {
                         if (mounted) {
-                          _showPremiumSnackbar(
-                            title: "Login Required",
-                            message: "Please login to add items to cart",
-                            isSuccess: false,
-                          );
+                          showLoginRequiredDialog(context, action: "add items to your cart");
                         }
                       }
                     },
@@ -361,7 +359,7 @@ class _ProductCardState extends State<ProductCard>
               ),
             ],
           ),
-          const SizedBox(height: 8,),
+          const SizedBox(height: 8),
           SizedBox(width: double.infinity, child: _cartButton(context)),
         ],
       );
@@ -538,6 +536,11 @@ class _ProductCardState extends State<ProductCard>
                                         }
                                       : null,
                                 );
+                              }
+                            } else {
+                              if (mounted) {
+                                showLoginRequiredDialog(context,
+                                    action: "add items to your favorites");
                               }
                             }
                           },

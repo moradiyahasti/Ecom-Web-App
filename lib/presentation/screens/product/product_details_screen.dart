@@ -2,6 +2,7 @@ import 'package:demo/data/providers/auth_provider.dart';
 import 'package:demo/data/providers/cart_provider.dart';
 import 'package:demo/data/services/provider.dart';
 import 'package:demo/presentation/screens/Auth/dashboard_screen.dart';
+import 'package:demo/widget/all_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -162,7 +163,7 @@ class _EnhancedNailProductDetailsState extends State<EnhancedNailProductDetails>
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _imageGallery(isFavorite),
+            Expanded(child: _imageGallery(isFavorite)),
             const SizedBox(width: 40),
             Expanded(child: _details(cartProvider, cartQuantity)),
           ],
@@ -322,13 +323,8 @@ class _EnhancedNailProductDetailsState extends State<EnhancedNailProductDetails>
                             }
                           } else {
                             // User not logged in
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Please login to add favorites'),
-                                duration: Duration(seconds: 2),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
+                            showLoginRequiredDialog(context,
+                                action: "add items to your favorites");
                           }
                         },
                         child: AnimatedContainer(
@@ -579,13 +575,8 @@ class _EnhancedNailProductDetailsState extends State<EnhancedNailProductDetails>
                         }
                       } else {
                         // User not logged in
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Please login to add to cart'),
-                            duration: Duration(seconds: 2),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
+                        showLoginRequiredDialog(context,
+                            action: "add items to your cart");
                       }
                     },
               style: ElevatedButton.styleFrom(
@@ -741,13 +732,7 @@ class _EnhancedNailProductDetailsState extends State<EnhancedNailProductDetails>
                   }
                 } else {
                   // User not logged in
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please login to buy'),
-                      duration: Duration(seconds: 2),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                  showLoginRequiredDialog(context, action: "buy items");
                 }
               },
               style: ElevatedButton.styleFrom(

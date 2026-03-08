@@ -278,11 +278,16 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
           isSuccess: true,
         );
 
-        // 🔥 Wait a moment for snackbar, then return true
+        // 🔥 Wait a moment for snackbar, then navigate to dashboard
         await Future.delayed(const Duration(milliseconds: 800));
 
         if (mounted) {
-          Navigator.pop(context, true); // ← Return true for successful login
+          // Navigate to dashboard and remove all previous routes
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const MainLayout()),
+            (route) => false, // Remove all routes
+          );
         }
       }
     } else {

@@ -1,4 +1,6 @@
+import 'package:demo/presentation/screens/Auth/auth.dart';
 import 'package:demo/data/services/token_service.dart';
+
 import 'package:demo/widget/feture_item_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -275,6 +277,88 @@ Widget featuresSection() {
                 desc: "Quick and hassle-free payment process",
               ),
             ],
+          ),
+        ],
+      );
+    },
+  );
+}
+// 🔥 LOGIN REQUIRED DIALOG
+void showLoginRequiredDialog(BuildContext context, {String? action}) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            const Icon(
+              Icons.login_rounded,
+              color: Colors.deepPurple,
+              size: 28,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Login Required',
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: Colors.deepPurple,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          action != null
+              ? 'Please login to $action.'
+              : 'Please login to access this feature.',
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            color: Colors.grey[700],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // Close dialog
+              // Navigate to login screen
+              // Assuming AuthScreen is the login screen
+              // Based on previous code, we navigate to AuthScreen
+              // First we need to make sure we don't have cyclic imports or missing imports
+              // The user can navigate using a MaterialPageRoute or a named route
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const AuthScreen(),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.deepPurple,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            ),
+            child: Text(
+              'Login',
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       );
